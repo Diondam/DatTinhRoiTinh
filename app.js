@@ -38,6 +38,8 @@ const state = {
   carryOutByCol: [],
   pendingCarryAnimCol: -1,
   isCheckingAnswer: false,
+  isFlowAnimating: false,
+  calcSessionKey: "",
   rightCarryValue: 0,
   rightCarryTargetCol: -1,
 };
@@ -77,10 +79,27 @@ function speak(text) {
   window.speechSynthesis.speak(utterance);
 }
 
+function stopSpeaking() {
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+  window.speechSynthesis.cancel();
+}
+
+function releaseTransientFlowLocks() {
+  // Prevent stale async narration/animation locks from blocking navigation.
+  state.isFlowAnimating = false;
+  state.isCheckingAnswer = false;
+  checkAnswerBtn.disabled = false;
+  stopSpeaking();
+}
+
 function speakAsync(text, timeoutMs = 3600) {
   if (!("speechSynthesis" in window)) {
     return Promise.resolve();
   }
+
+  const dynamicTimeout = Math.max(timeoutMs, 2000 + String(text || "").length * 120);
 
   return new Promise((resolve) => {
     let settled = false;
@@ -97,7 +116,7 @@ function speakAsync(text, timeoutMs = 3600) {
     utterance.onend = finish;
     utterance.onerror = finish;
     window.speechSynthesis.speak(utterance);
-    setTimeout(finish, timeoutMs);
+    setTimeout(finish, dynamicTimeout);
   });
 }
 
@@ -211,7 +230,7 @@ function showFinalStep() {
   const symbol = getOperationSymbol();
   const finalResult = getFinalResult();
   if (finalSummaryText) {
-    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Chúc mừng con!`;
+    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Đáp án là ${finalResult}. Chúc mừng con!`;
   }
   launchFireworks();
 }
@@ -238,6 +257,32 @@ function getOperationSymbol() {
     case "div": return "÷";
     default: return "";
   }
+}
+
+function buildCandyGroupHtml(count, itemIcon, extraClass = "") {
+  const normalizedCount = Math.max(0, Number(count) || 0);
+  const classAttr = `candy-group ${extraClass}`.trim();
+
+  if (normalizedCount === 0) {
+    return `<span class="${classAttr} candy-group-zero"><span class="candy-zero-gap" aria-label="0"></span></span>`;
+  }
+
+  return `<span class="${classAttr}">${itemIcon.repeat(normalizedCount)}</span>`;
+}
+
+function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon) {
+  const parts = [
+    buildCandyGroupHtml(valA, itemIcon),
+    '<span class="candy-op">➕</span>',
+    buildCandyGroupHtml(valB, itemIcon),
+  ];
+
+  if (carryCount > 0) {
+    parts.push('<span class="candy-op">➕</span>');
+    parts.push(buildCandyGroupHtml(carryCount, itemIcon, carryCandyClass));
+  }
+
+  return `<div class="candy-frame">${parts.join("")}</div>`;
 }
 
 function updateBoardPreview() {
@@ -320,11 +365,24 @@ function setCarryBadge(targetCol, carryValue, shouldAnimate = false) {
   targetCell.appendChild(badge);
 }
 
+function getCarryBadgeTargetRect(targetCell, carryValue) {
+  if (!targetCell || carryValue <= 0) {
+    return null;
+  }
+  const probe = document.createElement("span");
+  probe.className = "carry-badge carry-badge-probe";
+  probe.textContent = String(carryValue);
+  targetCell.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  probe.remove();
+  return rect;
+}
+
 function hideRightCarryDisplay() {
   if (!rightCarryDisplay) {
     return;
   }
-  rightCarryDisplay.classList.remove("show", "pop");
+  rightCarryDisplay.classList.remove("show", "pop", "receive-ready");
   rightCarryDisplay.textContent = "";
 }
 
@@ -356,7 +414,7 @@ async function animateCarryFromSideToColumn(colIndex, carryValue) {
 
   showRightCarryDisplay(carryValue, false);
   const fromRect = rightCarryDisplay.getBoundingClientRect();
-  const toRect = targetCell.getBoundingClientRect();
+  const toRect = getCarryBadgeTargetRect(targetCell, carryValue) || targetCell.getBoundingClientRect();
   await animateFlyingToken(carryValue, fromRect, toRect, "flying-token-carry");
   setCarryBadge(colIndex, carryValue, true);
   state.rightCarryValue = 0;
@@ -377,6 +435,7 @@ function renderCarryBadges() {
 
 function animateFlyingToken(text, fromRect, toRect, className = "") {
   return new Promise((resolve) => {
+    let settled = false;
     const token = document.createElement("div");
     token.className = `flying-token ${className}`.trim();
     token.textContent = String(text);
@@ -397,6 +456,10 @@ function animateFlyingToken(text, fromRect, toRect, className = "") {
     });
 
     const cleanup = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
       token.remove();
       resolve();
     };
@@ -405,19 +468,37 @@ function animateFlyingToken(text, fromRect, toRect, className = "") {
   });
 }
 
-async function animateAdditionResultFlow(userAnswer, resultDigit, colIndex) {
+function waitMs(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function placeResultValue(colIndex, valueToShow) {
+  const resultCell = getCellAt("l4", colIndex);
+  if (!resultCell) {
+    return;
+  }
+  resultCell.textContent = String(valueToShow);
+  resultCell.style.color = "var(--brand)";
+  resultCell.classList.remove("result-land-pop");
+  void resultCell.offsetWidth;
+  resultCell.classList.add("result-land-pop");
+  await waitMs(280);
+}
+
+async function animateColumnResultFlow(userAnswer, colIndex, landedValue) {
   const inputRect = stepAnswer.getBoundingClientRect();
   const resultCell = getCellAt("l4", colIndex);
 
   if (!resultCell) {
-    updateBoardResult(colIndex, resultDigit);
+    updateBoardResult(colIndex, landedValue);
     return;
   }
 
+  resultCell.classList.add("freeze-active-col");
   const resultRect = resultCell.getBoundingClientRect();
   await animateFlyingToken(userAnswer, inputRect, resultRect, "flying-token-main");
-
-  updateBoardResult(colIndex, resultDigit);
+  await placeResultValue(colIndex, landedValue);
+  resultCell.classList.remove("freeze-active-col");
 }
 
 async function animateCarryFromResultToSide(carryDigit, colIndex) {
@@ -437,8 +518,11 @@ async function animateCarryFromResultToSide(carryDigit, colIndex) {
   }
 
   const fromRect = resultCell.getBoundingClientRect();
+  rightCarryDisplay.textContent = String(carryDigit);
+  rightCarryDisplay.classList.add("show", "receive-ready");
   const toRect = rightCarryDisplay.getBoundingClientRect();
   await animateFlyingToken(carryDigit, fromRect, toRect, "flying-token-carry");
+  rightCarryDisplay.classList.remove("receive-ready");
   showRightCarryDisplay(carryDigit, true);
   state.rightCarryValue = carryDigit;
   state.rightCarryTargetCol = colIndex + 1;
@@ -463,6 +547,9 @@ function prepareCalculationPhase() {
   const valB = getDigitAtCol(state.b, state.calcCol);
   
   let questionText = "";
+  let narrationBeforeCarry = "";
+  let narrationCarry = "";
+  let narrationAfterCarry = "";
   let itemIcon = "🍬";
   
   // Đóng khung cột tương ứng (từ phải sang trái)
@@ -488,7 +575,6 @@ function prepareCalculationPhase() {
   // Format carry content
   const carryText = state.carry > 0 ? `, cộng thêm ${state.carry} (số nhớ)` : '';
   const carryCandyClass = state.pendingCarryAnimCol === state.calcCol ? "carry-candy incoming-carry" : "carry-candy";
-  const carryCandy = state.carry > 0 ? ` <span class="${carryCandyClass}">➕ ${itemIcon.repeat(state.carry)}</span>` : "";
   
   // Đối với trường hợp trống giá trị ở cả 2 nơi nhưng có số nhớ (ví dụ cộng tràn 9+5=14)
   const isBothEmpty = (state.calcCol >= String(state.a).length) && (state.calcCol >= String(state.b).length);
@@ -496,10 +582,15 @@ function prepareCalculationPhase() {
   if (state.operation === "add") {
     if (isBothEmpty && state.carry > 0) {
       questionText = `${colName}: Hạ số nhớ ${state.carry} xuống nào!`;
-      candyContainer.innerHTML = `<span class="${carryCandyClass}">${itemIcon.repeat(state.carry)}</span>`;
+      candyContainer.innerHTML = `<div class="candy-frame">${buildCandyGroupHtml(state.carry, itemIcon, carryCandyClass)}</div>`;
     } else {
       questionText = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
-      candyContainer.innerHTML = itemIcon.repeat(valA) + " ➕ " + itemIcon.repeat(valB) + carryCandy;
+      candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon);
+      if (state.carry > 0) {
+        narrationBeforeCarry = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa.`;
+        narrationCarry = `Cộng thêm ${state.carry} số nhớ.`;
+        narrationAfterCarry = "Thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.";
+      }
     }
   } else if (state.operation === "sub") {
     // Có nhớ (cần trừ đi 1)
@@ -521,8 +612,34 @@ function prepareCalculationPhase() {
     candyContainer.innerHTML = "";
   }
   
-  mathQuestionText.textContent = questionText;
-  speak(questionText);
+  if (mathQuestionText) {
+    mathQuestionText.textContent = questionText;
+  }
+
+  if (isPendingTransfer) {
+    state.isFlowAnimating = true;
+    checkAnswerBtn.disabled = true;
+    const incomingCarryValue = state.rightCarryValue;
+    const targetCol = state.calcCol;
+
+    (async () => {
+      if (narrationCarry) {
+        await speakAsync(narrationBeforeCarry, 5200);
+        await speakAsync(narrationCarry, 4200);
+        await animateCarryFromSideToColumn(targetCol, incomingCarryValue);
+        await speakAsync(narrationAfterCarry, 5400);
+        return;
+      }
+
+      await speakAsync(questionText, 5600);
+      await animateCarryFromSideToColumn(targetCol, incomingCarryValue);
+    })().finally(() => {
+      state.isFlowAnimating = false;
+      checkAnswerBtn.disabled = false;
+    });
+  } else {
+    speak(questionText);
+  }
   
   feedbackText.textContent = "";
   feedbackText.className = "animate__animated";
@@ -538,9 +655,6 @@ function prepareCalculationPhase() {
     nextBtn.disabled = true;
   }
 
-  if (state.operation === "add" && isPendingTransfer) {
-    animateCarryFromSideToColumn(state.calcCol, state.rightCarryValue);
-  }
 }
 
 checkAnswerBtn.addEventListener("click", () => {
@@ -557,7 +671,9 @@ checkAnswerBtn.addEventListener("click", () => {
   }
 
   state.isCheckingAnswer = true;
+  state.isFlowAnimating = true;
   checkAnswerBtn.disabled = true;
+  stopSpeaking();
 
   const valA = getDigitAtCol(state.a, state.calcCol);
   const valB = getDigitAtCol(state.b, state.calcCol);
@@ -599,30 +715,32 @@ checkAnswerBtn.addEventListener("click", () => {
       feedbackText.textContent = "Chính xác tuyệt vời! 🎊";
       feedbackText.style.color = "var(--ok)";
       feedbackText.classList.add("animate__tada");
+      speak(`Đúng rồi, là ${expectedAnswer}, con giỏi lắm!`);
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
       
-      // Hiển thị kết quả của cột lên bảng với animation tách số nhớ
       const completeSuccess = async () => {
-        if (state.operation === "add") {
-          await animateAdditionResultFlow(userAnswer, boardDigit, state.calcCol);
-        } else {
-          updateBoardResult(state.calcCol, boardDigit);
+        const landedValue = newCarry > 0 ? expectedAnswer : boardDigit;
+        await animateColumnResultFlow(userAnswer, state.calcCol, landedValue);
+
+        if (newCarry > 0) {
+          await speakAsync(`Bây giờ con cho nhớ ${newCarry} đơn vị ra.`);
+          await animateCarryFromResultToSide(newCarry, state.calcCol);
+          if (landedValue !== boardDigit) {
+            await placeResultValue(state.calcCol, boardDigit);
+          }
+          await speakAsync("Mình làm tiếp cột sau nhé.", 4000);
+          return;
         }
+
+        speak("Con ấn tiếp theo nhé.");
       };
 
       completeSuccess()
-        .then(async () => {
-          if (state.operation === "add" && newCarry > 0) {
-            await speakAsync(`Con trả lời ${userAnswer}. Chính xác tuyệt vời, chúc mừng con. Vì phép tính lớn hơn 9, con phải nhớ ${newCarry} đơn vị ra.`);
-            await animateCarryFromResultToSide(newCarry, state.calcCol);
-            return;
-          }
-          speak(`Con trả lời ${userAnswer}. Chính xác tuyệt vời, chúc mừng con, ấn tiếp theo nào.`);
-        })
         .finally(() => {
           nextBtn.disabled = false;
           checkAnswerBtn.disabled = false;
           state.isCheckingAnswer = false;
+          state.isFlowAnimating = false;
         });
       
   } else {
@@ -632,6 +750,7 @@ checkAnswerBtn.addEventListener("click", () => {
       speak("Chưa đúng rồi, con đếm lại nhé");
       checkAnswerBtn.disabled = false;
       state.isCheckingAnswer = false;
+      state.isFlowAnimating = false;
   }
 });
 
@@ -676,6 +795,52 @@ function buildVerticalLines() {
   const line4 = `${resultHtml}`;
 
   return [line1, line2, line3, line4];
+}
+
+function getCalcSessionKey() {
+  return `${state.operation}|${state.a}|${state.b}`;
+}
+
+function getStoredBoardDigit(colIndex) {
+  const stored = state.columnResults[colIndex];
+  if (stored === undefined || stored === null) {
+    return null;
+  }
+  const numeric = Number(stored);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (state.operation === "add") {
+    return Math.abs(numeric) % 10;
+  }
+  return numeric;
+}
+
+function paintBoardFromState() {
+  const lines = buildVerticalLines();
+  verticalStack.innerHTML = lines
+    .map((line, index) => `<div class="calc-line l${index + 1}" style="animation: none; opacity: 1; transform: none;">${line}</div>`)
+    .join("");
+
+  state.columnResults.forEach((_, colIndex) => {
+    const digit = getStoredBoardDigit(colIndex);
+    if (digit === null) {
+      return;
+    }
+    const cell = getCellAt("l4", colIndex);
+    if (!cell) {
+      return;
+    }
+    cell.textContent = String(digit);
+    cell.style.color = "var(--brand)";
+  });
+}
+
+function showStep3StaticBoard() {
+  clearBoardTimers();
+  const symbol = getOperationSymbol();
+  horizontalEquation.textContent = `${state.a} ${symbol} ${state.b} = ?`;
+  paintBoardFromState();
 }
 
 function runBoardAnimation() {
@@ -733,8 +898,21 @@ function validateSlideBeforeNext() {
 }
 
 function goNext() {
+  if (state.isFlowAnimating) {
+    if (state.isCheckingAnswer) {
+      speak("Đợi animation xong đã rồi mình qua bước tiếp theo nhé.");
+      return;
+    }
+    releaseTransientFlowLocks();
+  }
+
   if (!validateSlideBeforeNext()) {
     return;
+  }
+
+  if (state.slide === 3) {
+    // Prevent Step 3 typing timers from overwriting Step 4 board state.
+    clearBoardTimers();
   }
 
   if (state.slide === 4) {
@@ -751,8 +929,8 @@ function goNext() {
       return;
     }
 
-    showSlide(5);
     showFinalStep();
+    showSlide(5);
     return;
   }
 
@@ -769,28 +947,45 @@ function goNext() {
   if (state.slide === 3) {
     runBoardAnimation();
   } else if (state.slide === 4) {
-    // Determine number of columns and start calculation
-    state.calcCol = 0;
-    state.carry = 0;
-    state.columnResults = [];
+    // Determine number of columns and start/restore calculation session
     const finalAns = state.operation === "add" ? (state.a + state.b) : (state.operation === "sub" ? (state.a - state.b) : (state.operation === "mul" ? (state.a * state.b) : state.a / state.b));
-    state.maxCols = Math.max(String(state.a).length, String(state.b).length, String(finalAns).length);
-    state.columnResults = Array(state.maxCols).fill(null);
-    state.carryInByCol = Array(state.maxCols + 1).fill(0);
-    state.carryOutByCol = Array(state.maxCols).fill(0);
-    state.pendingCarryAnimCol = -1;
-    
-    // Rebuild vertical lines to match exact maxCols with padded spaces for alignment
-    const lines = buildVerticalLines();
-    verticalStack.innerHTML = lines
-      .map((line, index) => `<div class="calc-line l${index + 1}" style="animation: none; opacity: 1; transform: none;">${line}</div>`)
-      .join("");
-      
+    const nextMaxCols = Math.max(String(state.a).length, String(state.b).length, String(finalAns).length);
+    const nextSessionKey = getCalcSessionKey();
+    const shouldResetSession =
+      state.calcSessionKey !== nextSessionKey ||
+      state.maxCols !== nextMaxCols ||
+      state.columnResults.length !== nextMaxCols;
+
+    state.maxCols = nextMaxCols;
+    if (shouldResetSession) {
+      state.calcSessionKey = nextSessionKey;
+      state.calcCol = 0;
+      state.carry = 0;
+      state.columnResults = Array(state.maxCols).fill(null);
+      state.carryInByCol = Array(state.maxCols + 1).fill(0);
+      state.carryOutByCol = Array(state.maxCols).fill(0);
+      state.pendingCarryAnimCol = -1;
+      state.rightCarryValue = 0;
+      state.rightCarryTargetCol = -1;
+      hideRightCarryDisplay();
+    } else {
+      state.calcCol = Math.min(state.calcCol, state.maxCols - 1);
+      state.carry = state.carryInByCol[state.calcCol] ?? 0;
+    }
+
+    paintBoardFromState();
     prepareCalculationPhase();
   }
 }
 
 function goBack() {
+  if (state.isFlowAnimating && state.isCheckingAnswer) {
+    speak("Đợi animation xong đã rồi mình quay lại nhé.");
+    return;
+  }
+  releaseTransientFlowLocks();
+  clearBoardTimers();
+
   if (state.slide === 0) {
     return;
   }
@@ -809,7 +1004,7 @@ function goBack() {
       return;
     }
     showSlide(3);
-    runBoardAnimation();
+    showStep3StaticBoard();
     return;
   }
 
@@ -829,6 +1024,8 @@ function resetToStart() {
   state.carryOutByCol = [];
   state.pendingCarryAnimCol = -1;
   state.isCheckingAnswer = false;
+  state.isFlowAnimating = false;
+  state.calcSessionKey = "";
   state.rightCarryValue = 0;
   state.rightCarryTargetCol = -1;
   firstNumberInput.value = "";
@@ -847,6 +1044,7 @@ function resetToStart() {
   
   resetBoard();
   hideRightCarryDisplay();
+  releaseTransientFlowLocks();
   showSlide(0);
 }
 

@@ -1,10 +1,10 @@
 # Implementation Status
 
 ## Last Updated
-2026-03-18 (step-4 flow fix + step-5 celebration + git init)
+2026-03-19 (step-4 candy frame UI + step-5 final answer narration)
 
 ## Current Focus
-Stabilize guided calculation flow when moving back/next and finish the lesson with a clear final celebration step.
+Refine child-friendly presentation in step 4 and guarantee final answer is clearly spoken in step 5.
 
 ## Recent Changes
 - Updated [index.html](index.html):
@@ -26,13 +26,32 @@ Stabilize guided calculation flow when moving back/next and finish the lesson wi
     - Summary text: "Vậy phép tính ... có kết quả là ... Chúc mừng con!"
     - Multi-burst fireworks with confetti.
   - Updated dynamic Next button labels (Start / Next / New exercise).
+  - Reworked correct-answer animation order so carry flies out only after narration reaches "cho nhớ ... đơn vị ra".
+  - Improved carry flight continuity by targeting exact carry-badge destination coordinates (no visual teleport).
+  - Added transition stability helpers (`receive-ready`, exact target probing, active-cell freeze during landing).
+  - Fixed Step 3 -> Step 4 race condition by clearing Step 3 timers before entering Step 4.
+  - Added calculation session restore using `calcSessionKey` so back/next keeps previous Step 4 progress instead of resetting.
+  - Added board re-paint helpers to restore solved columns when returning from back navigation.
+- Updated [styles.css](styles.css):
+  - Added `result-land-pop`, `receive-ready`, `carry-badge-probe`, and `freeze-active-col` classes to smooth handoffs between animation phases.
+- Updated [index.html](index.html):
+  - Removed inline candy container sizing styles so step-4 visual rendering is controlled by stylesheet only.
+- Updated [app.js](app.js):
+  - Added framed candy equation renderer for addition columns.
+  - Added explicit zero placeholder gap in candy frame when an addend is 0.
+  - Hid step-4 helper text visually while preserving spoken guidance.
+  - Updated final summary sentence to include explicit answer repetition.
+  - Reordered last-step transition to compute final summary before showing step 5 so narration reads the correct answer.
+- Updated [styles.css](styles.css):
+  - Added step-4 candy frame styling (`candy-frame`, `candy-group`, `candy-zero-gap`, `candy-op`).
+  - Hid `#mathQuestionText` from visible layout.
 - Initialized Git repository and created first commit:
   - Commit: `852c6ce` with message "Initial commit".
 
 ## Next Steps
-- Runtime-test full flow in browser for all operations (add/sub/mul/div), especially division result formatting.
-- Optionally add a dedicated "Làm lại bài này" action from Step 5 (without resetting to intro).
-- Consider adding lightweight UI components (toast/modal) for richer kid-friendly feedback.
+- Runtime-test addition columns with zero addend and carry (e.g., 678 + 78) to verify visual spacing clarity.
+- Check text-to-speech pronunciation of longer results in step 5 across available Vietnamese voices.
+- Decide whether subtraction and multiplication should adopt the same framed object-visual style for consistency.
 
 ## Technical Context
 - Stack: plain HTML/CSS/JavaScript + CDN libraries.
@@ -44,3 +63,7 @@ Stabilize guided calculation flow when moving back/next and finish the lesson wi
   - Resolved by introducing a dedicated Step 5 and gating Step 4 progression by column validation state.
 - Back navigation previously only decremented slide index, which could desync the learning state in column mode.
   - Resolved with custom back behavior for Step 4/Step 5 and state restoration via `prepareCalculationPhase()`.
+- Fast Next from Step 3 could leave stale typing timers that overwrite Step 4 DOM, causing active-column frame loss.
+  - Resolved by clearing Step 3 board timers before transitioning and using deterministic board repaint.
+- Carry animation felt like disappearing/reappearing due to center-to-corner destination mismatch.
+  - Resolved by measuring a hidden carry-badge probe rect and flying tokens to that exact final location.

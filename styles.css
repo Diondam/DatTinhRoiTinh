@@ -94,6 +94,11 @@ body {
   transform: translateY(-50%) scale(1);
 }
 
+.right-carry-display.receive-ready {
+  opacity: 0.28;
+  transform: translateY(-50%) scale(1);
+}
+
 .right-carry-display.pop {
   animation: rightCarryPop 0.55s ease;
 }
@@ -178,6 +183,20 @@ body {
 
 .carry-badge-pop {
   animation: carryPop 0.45s ease;
+}
+
+.carry-badge-probe {
+  opacity: 0;
+  animation: none !important;
+}
+
+.result-land-pop {
+  animation: resultLandPop 0.32s ease;
+}
+
+.digit-cell.active-col.freeze-active-col {
+  animation: none;
+  transform: none;
 }
 
 .op-symbol {
@@ -376,6 +395,51 @@ body {
   white-space: nowrap;
 }
 
+#mathQuestionText {
+  display: none;
+}
+
+.candy-container {
+  margin: 15px 0;
+  font-size: 2.2rem;
+}
+
+.candy-frame {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.8rem;
+  border: 2px dashed rgba(255, 226, 134, 0.8);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.candy-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  min-height: 1.35em;
+}
+
+.candy-group-zero {
+  min-width: 1.8em;
+  justify-content: center;
+}
+
+.candy-zero-gap {
+  display: inline-block;
+  width: 1.4em;
+  height: 0.45em;
+  border-bottom: 3px dashed rgba(217, 208, 245, 0.75);
+  border-radius: 6px;
+}
+
+.candy-op {
+  color: #d9d0f5;
+  font-size: 1.3em;
+  line-height: 1;
+}
+
 .carry-candy {
   display: inline-block;
   margin-left: 0.3rem;
@@ -529,6 +593,21 @@ body {
   }
   100% {
     transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes resultLandPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  65% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
     opacity: 1;
   }
 }
