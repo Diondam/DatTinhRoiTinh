@@ -46,6 +46,8 @@ const state = {
   calcSessionKey: "",
   rightCarryValue: 0,
   rightCarryTargetCol: -1,
+  step4Prompt: "",
+  finalNarrationText: "",
 };
 
 function isLikelyFemaleVoice(voice) {
@@ -187,15 +189,14 @@ function speakCurrentSlide() {
     return;
   }
   if (state.slide === 4) {
-    speak("Bước bốn. Con làm phép tính theo từng cột rồi bấm kiểm tra.");
+    speak(state.step4Prompt || "Bước bốn. Con làm phép tính theo từng cột rồi bấm kiểm tra.");
     return;
   }
   if (state.slide === 5) {
-    speak(finalSummaryText?.textContent || "Chúc mừng con đã hoàn thành bài toán.");
+    speak(state.finalNarrationText || finalSummaryText?.textContent || "Chúc mừng con đã hoàn thành bài toán.");
     return;
   }
-  const symbols = { add: "cộng", sub: "trừ", mul: "nhân", div: "chia" };
-  const symbol = symbols[state.operation] || "";
+  const symbol = getOperationWord();
   speak(`Bước ba. Nhìn lên bảng. Ta thực hiện phép ${symbol}. ${state.a} ${symbol} ${state.b}.`);
 }
 
@@ -227,10 +228,28 @@ function launchFireworks() {
 
 function showFinalStep() {
   const symbol = getOperationSymbol();
+  const operationWord = getOperationWord();
   const finalResult = getFinalResult();
   if (finalSummaryText) {
     finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Đáp án là ${finalResult}. Chúc mừng con!`;
   }
+  state.finalNarrationText = `Vậy phép tính ${state.a} ${operationWord} ${state.b} bằng ${finalResult}. Đáp án là ${finalResult}. Chúc mừng con!`;
+
+  // Step 5: only show animated horizontal equation with final result.
+  clearBoardTimers();
+  verticalStack.innerHTML = "";
+  const expression = getHorizontalExpression(finalResult);
+  horizontalEquation.textContent = "";
+  let pointer = 0;
+  state.typingTimer = setInterval(() => {
+    pointer += 1;
+    horizontalEquation.textContent = expression.slice(0, pointer);
+    if (pointer >= expression.length) {
+      clearInterval(state.typingTimer);
+      state.typingTimer = null;
+    }
+  }, 70);
+
   launchFireworks();
 }
 
@@ -258,6 +277,21 @@ function getOperationSymbol() {
   }
 }
 
+function getOperationWord() {
+  switch (state.operation) {
+    case "add": return "cộng";
+    case "sub": return "trừ";
+    case "mul": return "nhân";
+    case "div": return "chia";
+    default: return "";
+  }
+}
+
+function getHorizontalExpression(result = "?") {
+  const symbol = getOperationSymbol();
+  return `${state.a} ${symbol} ${state.b} = ${result}`;
+}
+
 function buildCandyGroupHtml(count, itemIcon, extraClass = "") {
   const normalizedCount = Math.max(0, Number(count) || 0);
   const classAttr = `candy-group ${extraClass}`.trim();
@@ -267,6 +301,22 @@ function buildCandyGroupHtml(count, itemIcon, extraClass = "") {
   }
 
   return `<span class="${classAttr}">${itemIcon.repeat(normalizedCount)}</span>`;
+}
+
+function buildStrikeCandyGroupHtml(count, itemIcon, extraClass = "", delayStart = 0, baseDelay = 0.9) {
+  const normalizedCount = Math.max(0, Number(count) || 0);
+  const classAttr = `candy-group candy-group-strike ${extraClass}`.trim();
+
+  if (normalizedCount === 0) {
+    return `<span class="${classAttr} candy-group-zero"><span class="candy-zero-gap" aria-label="0"></span></span>`;
+  }
+
+  const itemsHtml = Array.from({ length: normalizedCount }, (_, index) => {
+    const strikeDelay = baseDelay + (delayStart + index) * 0.2;
+    return `<span class="strike-candy" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+  }).join("");
+
+  return `<span class="${classAttr}">${itemsHtml}</span>`;
 }
 
 function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon) {
@@ -584,6 +634,7 @@ function prepareCalculationPhase() {
   });
   
   document.getElementById("step4Title").textContent = `Bước 4: Tính ${colName}`;
+  horizontalEquation.textContent = getHorizontalExpression("?");
   
   candyContainer.classList.remove("animate__bounceIn");
   void candyContainer.offsetWidth; // reset animation
@@ -609,37 +660,71 @@ function prepareCalculationPhase() {
     const adjustedValA = valA - state.carry;
     
     if (adjustedValA >= valB) {
-      if (state.carry > 0) {
+      const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
+      if (isOnlyBorrowSubtract) {
+         questionText = `Ở ${colName}: cột này không phải trừ kẹo nào ở dưới cả, con chỉ cần trừ đi 1 cái nhớ thôi. ${valA} trừ 1 còn bao nhiêu nào?`;
+      } else if (state.carry > 0) {
          questionText = `Ở ${colName}: con có ${valA}, bị trừ đi 1 (vì lúc nãy mượn) nên còn ${adjustedValA}. Bây giờ lấy ${adjustedValA} cái kẹo trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
       } else {
          questionText = `Ở ${colName}: con có ${valA} cái kẹo, bị trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
       }
-      candyContainer.innerHTML = `<span style="opacity: 1">${itemIcon.repeat(Math.max(0, adjustedValA - valB))}</span><span style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(valB)}</span>`;
+      if (isOnlyBorrowSubtract) {
+        const visibleFinal = Math.max(0, valA - state.carry);
+        candyContainer.innerHTML = `
+          <div class="candy-frame subtraction-frame">
+            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+            <span class="candy-op">−</span>
+            ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)}
+          </div>
+        `;
+      } else {
+        const visibleFinal = Math.max(0, adjustedValA - valB);
+        candyContainer.innerHTML = `
+          <div class="candy-frame subtraction-frame">
+            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+            <span class="candy-op">−</span>
+            ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")}
+          </div>
+        `;
+      }
     } else {
       const borrowedVal = valA + 10;
-      if (state.carry > 0) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Con hãy nhìn hình kẹo minh họa, có 1 cái kẹo lẻ bị gạch đó, rồi cho cô đáp án nhé.`;
+      const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
+      if (isOnlyBorrowSubtract) {
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn 0 sau khi trừ nhớ nên mình phải mượn 1 chục, thành ${borrowedVal}. Cột này không trừ kẹo nào ở dưới, con chỉ cần trừ đi 1 cái nhớ còn bao nhiêu thôi nhé.`;
+      } else if (state.carry > 0) {
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Con nhìn số kẹo bị gạch để xem sau bước 1 còn bao nhiêu, rồi trừ tiếp 1 cái nhớ nhé.`;
       } else {
         questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
       }
       if (state.carry > 0) {
         const visibleFinal = Math.max(0, borrowedVal - valB - state.carry);
-        candyContainer.innerHTML = `
-          <div class="candy-frame">
-            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-            <span class="candy-op">−</span>
-            <span class="candy-group" style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(Math.max(0, valB))}</span>
-            <span class="candy-op">−</span>
-            <span class="candy-group" style="opacity: 0.35; text-decoration: line-through; filter: grayscale(0.2);">${itemIcon.repeat(Math.max(0, state.carry))}</span>
-          </div>
-        `;
+        if (isOnlyBorrowSubtract) {
+          candyContainer.innerHTML = `
+            <div class="candy-frame subtraction-frame">
+              ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+              <span class="candy-op">−</span>
+              ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)}
+            </div>
+          `;
+        } else {
+          candyContainer.innerHTML = `
+            <div class="candy-frame subtraction-frame">
+              ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+              <span class="candy-op">−</span>
+              ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike", 0, 1.0)}
+              <span class="candy-op">−</span>
+              ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", Math.max(0, valB), 1.0)}
+            </div>
+          `;
+        }
       } else {
         const visibleFinal = Math.max(0, adjustedValA + 10 - valB);
         candyContainer.innerHTML = `
-          <div class="candy-frame">
+          <div class="candy-frame subtraction-frame">
             ${buildCandyGroupHtml(visibleFinal, itemIcon)}
             <span class="candy-op">−</span>
-            <span class="candy-group" style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(Math.max(0, valB))}</span>
+            ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")}
           </div>
         `;
       }
@@ -652,6 +737,7 @@ function prepareCalculationPhase() {
   if (mathQuestionText) {
     mathQuestionText.textContent = questionText;
   }
+  state.step4Prompt = questionText;
   speak(questionText);
   
   feedbackText.textContent = "";
@@ -984,6 +1070,8 @@ function goNext() {
       state.pendingCarryAnimCol = -1;
       state.rightCarryValue = 0;
       state.rightCarryTargetCol = -1;
+      state.step4Prompt = "";
+      state.finalNarrationText = "";
       hideRightCarryDisplay();
     } else {
       state.calcCol = Math.min(state.calcCol, state.maxCols - 1);
@@ -1044,6 +1132,8 @@ function resetToStart() {
   state.calcSessionKey = "";
   state.rightCarryValue = 0;
   state.rightCarryTargetCol = -1;
+  state.step4Prompt = "";
+  state.finalNarrationText = "";
   firstNumberInput.value = "";
   secondNumberInput.value = "";
   operationButtons.forEach((btn) => btn.classList.remove("is-active"));

@@ -449,11 +449,60 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.subtraction-frame {
+  gap: 0.35rem;
+  padding: 0.36rem 0.52rem;
+  font-size: 0.84em;
+  max-width: 100%;
+}
+
 .candy-group {
   display: inline-flex;
   align-items: center;
   gap: 0.18rem;
   min-height: 1.35em;
+}
+
+.candy-group-strike {
+  gap: 0.14rem;
+}
+
+.strike-candy {
+  position: relative;
+  display: inline-block;
+  transform-origin: center;
+  animation: strikeCandySettle 0.42s ease forwards;
+  animation-delay: var(--strike-delay, 0s);
+}
+
+.strike-candy::after {
+  content: "";
+  position: absolute;
+  left: -0.06em;
+  right: -0.06em;
+  top: 52%;
+  height: 0.1em;
+  border-radius: 999px;
+  background: rgba(255, 116, 116, 0.9);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: strikeLineDraw 0.34s ease-out forwards;
+  animation-delay: calc(var(--strike-delay, 0s) + 0.12s);
+}
+
+.main-strike .strike-candy {
+  opacity: 0.96;
+  filter: saturate(0.95);
+}
+
+.borrow-extra-strike .strike-candy {
+  opacity: 0.98;
+  filter: grayscale(0.05);
+}
+
+.borrow-extra-strike .strike-candy::after {
+  background: rgba(255, 214, 102, 0.96);
+  height: 0.11em;
 }
 
 .candy-group-zero {
@@ -629,6 +678,26 @@ body {
   100% {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes strikeLineDraw {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes strikeCandySettle {
+  0% {
+    transform: translateY(-5px) scale(1.05);
+  }
+  100% {
+    transform: translateY(0) scale(1);
   }
 }
 
