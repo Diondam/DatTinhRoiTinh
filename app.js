@@ -616,8 +616,33 @@ function prepareCalculationPhase() {
       }
       candyContainer.innerHTML = `<span style="opacity: 1">${itemIcon.repeat(Math.max(0, adjustedValA - valB))}</span><span style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(valB)}</span>`;
     } else {
-      questionText = `Ở ${colName}: ${adjustedValA} bé hơn ${valB} mất rồi, mình phải mượn 1 chục! Lấy ${adjustedValA + 10} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
-      candyContainer.innerHTML = itemIcon.repeat(adjustedValA + 10 - valB) + `<span style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(valB)}</span>`;
+      const borrowedVal = valA + 10;
+      if (state.carry > 0) {
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Con hãy nhìn hình kẹo minh họa, có 1 cái kẹo lẻ bị gạch đó, rồi cho cô đáp án nhé.`;
+      } else {
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
+      }
+      if (state.carry > 0) {
+        const visibleFinal = Math.max(0, borrowedVal - valB - state.carry);
+        candyContainer.innerHTML = `
+          <div class="candy-frame">
+            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+            <span class="candy-op">−</span>
+            <span class="candy-group" style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(Math.max(0, valB))}</span>
+            <span class="candy-op">−</span>
+            <span class="candy-group" style="opacity: 0.35; text-decoration: line-through; filter: grayscale(0.2);">${itemIcon.repeat(Math.max(0, state.carry))}</span>
+          </div>
+        `;
+      } else {
+        const visibleFinal = Math.max(0, adjustedValA + 10 - valB);
+        candyContainer.innerHTML = `
+          <div class="candy-frame">
+            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
+            <span class="candy-op">−</span>
+            <span class="candy-group" style="opacity: 0.3; text-decoration: line-through;">${itemIcon.repeat(Math.max(0, valB))}</span>
+          </div>
+        `;
+      }
     }
   } else {
     questionText = `${colName}: ${valA} ${getOperationSymbol()} ${valB}${carryText} bằng bao nhiêu nào?`;
@@ -678,12 +703,14 @@ checkAnswerBtn.addEventListener("click", () => {
     boardDigit = sum % 10;
     newCarry = Math.floor(sum / 10);
   } else if (state.operation === "sub") {
-    let adjustedValA = valA - state.carry;
+    const adjustedValA = valA - state.carry;
     if (adjustedValA >= valB) {
       expectedAnswer = adjustedValA - valB;
       newCarry = 0;
     } else {
-      expectedAnswer = adjustedValA + 10 - valB;
+      const borrowedVal = valA + 10;
+      // Dạy theo flow: mượn thành 12 (hoặc x+10), trừ số dưới trước, rồi trừ 1 đã mượn.
+      expectedAnswer = (borrowedVal - valB) - state.carry;
       newCarry = 1;
     }
     boardDigit = expectedAnswer;
@@ -716,7 +743,7 @@ checkAnswerBtn.addEventListener("click", () => {
         await animateColumnResultFlow(userAnswer, state.calcCol, landedValue);
 
         if (newCarry > 0) {
-          await speakAsync(`Bây giờ con cho nhớ ${newCarry} đơn vị ra.`);
+          await speakAsync(`Bây giờ con cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`);
           await animateCarryFromResultToSide(newCarry, state.calcCol);
           if (landedValue !== boardDigit) {
             await placeResultValue(state.calcCol, boardDigit);
