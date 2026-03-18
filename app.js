@@ -7,6 +7,7 @@ const nextBtn = document.getElementById("nextBtn");
 const replayBtn = document.getElementById("replayBtn");
 const startBtn = document.getElementById("startBtn");
 const boardStartBtn = document.getElementById("boardStartBtn");
+const boardQuickStartBtn = document.getElementById("boardQuickStartBtn");
 const boardWelcome = document.getElementById("boardWelcome");
 const slidesSection = document.getElementById("slidesSection");
 const progressFill = document.getElementById("progressFill");
@@ -433,6 +434,42 @@ function beginLesson() {
   setBoardWelcomeVisibility(false);
   updateBoardPreview();
   showSlide(1);
+}
+
+function beginQuickStart() {
+  state.hasStarted = true;
+  setBoardWelcomeVisibility(false);
+  // Tự sinh phép toán Random
+  const ops = ["add", "sub"];
+  state.operation = ops[Math.floor(Math.random() * ops.length)];
+  
+  // Tự sinh số Random có 2 chữ số (10 - 99)
+  let randomA = Math.floor(Math.random() * 90) + 10;
+  let randomB = Math.floor(Math.random() * 90) + 10;
+  
+  // Đảm bảo phép trừ thì số lớn trừ số bé
+  if (state.operation === "sub" && randomA < randomB) {
+    const temp = randomA;
+    randomA = randomB;
+    randomB = temp;
+  }
+  
+  state.a = randomA;
+  state.b = randomB;
+  firstNumberInput.value = randomA;
+  secondNumberInput.value = randomB;
+  
+  // Cập nhật giao diện
+  operationButtons.forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.op === state.operation);
+  });
+  
+  // Cập nhật preview trước khi sang Step 3
+  updateBoardPreview();
+  
+  // Vào thẳng tới bước 3
+  showSlide(3);
+  runBoardAnimation();
 }
 
 function setOperation(op) {
@@ -1201,6 +1238,10 @@ function resetToStart() {
   if (quickStartBtn) {
     quickStartBtn.style.display = state.hasPlayed ? "block" : "none";
   }
+
+  if (boardQuickStartBtn) {
+    boardQuickStartBtn.style.display = state.hasPlayed ? "block" : "none";
+  }
   
   resetBoard();
   hideRightCarryDisplay();
@@ -1227,41 +1268,11 @@ if (boardStartBtn) {
 
 const quickStartBtn = document.getElementById("quickStartBtn");
 if (quickStartBtn) {
-  quickStartBtn.addEventListener("click", () => {
-    state.hasStarted = true;
-    setBoardWelcomeVisibility(false);
-    // Tự sinh phép toán Random
-    const ops = ["add", "sub"];
-    state.operation = ops[Math.floor(Math.random() * ops.length)];
-    
-    // Tự sinh số Random có 2 chữ số (10 - 99)
-    let randomA = Math.floor(Math.random() * 90) + 10;
-    let randomB = Math.floor(Math.random() * 90) + 10;
-    
-    // Đảm bảo phép trừ thì số lớn trừ số bé
-    if (state.operation === "sub" && randomA < randomB) {
-      const temp = randomA;
-      randomA = randomB;
-      randomB = temp;
-    }
-    
-    state.a = randomA;
-    state.b = randomB;
-    firstNumberInput.value = randomA;
-    secondNumberInput.value = randomB;
-    
-    // Cập nhật giao diện
-    operationButtons.forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.op === state.operation);
-    });
-    
-    // Cập nhật preview trước khi sang Step 3
-    updateBoardPreview();
-    
-    // Vào thẳng tới bước 3
-    showSlide(3);
-    runBoardAnimation();
-  });
+  quickStartBtn.addEventListener("click", beginQuickStart);
+}
+
+if (boardQuickStartBtn) {
+  boardQuickStartBtn.addEventListener("click", beginQuickStart);
 }
 
 nextBtn.addEventListener("click", goNext);
