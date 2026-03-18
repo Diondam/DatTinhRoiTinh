@@ -391,10 +391,6 @@ function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIc
   return `
     <div class="candy-frame subtraction-frame borrow-flow-frame">
       <div class="subtraction-row subtraction-row-main">${candyGroup}</div>
-      <div class="subtraction-row subtraction-row-extra borrow-flow-hint">
-        <span class="candy-op">−</span><span class="borrow-flow-label">${normalizedSubtract}</span>
-        <span class="candy-op">−</span><span class="borrow-flow-label borrow-carry-label">${normalizedCarry}</span>
-      </div>
     </div>
   `;
 }
