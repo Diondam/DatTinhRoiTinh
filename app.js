@@ -231,9 +231,9 @@ function showFinalStep() {
   const operationWord = getOperationWord();
   const finalResult = getFinalResult();
   if (finalSummaryText) {
-    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Đáp án là ${finalResult}. Chúc mừng con!`;
+    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Chúc mừng con!`;
   }
-  state.finalNarrationText = `Vậy phép tính ${state.a} ${operationWord} ${state.b} bằng ${finalResult}. Đáp án là ${finalResult}. Chúc mừng con!`;
+  state.finalNarrationText = `Vậy phép tính ${state.a} ${operationWord} ${state.b} bằng ${finalResult}. Chúc mừng con!`;
 
   // Step 5: only show animated horizontal equation with final result.
   clearBoardTimers();
@@ -303,9 +303,21 @@ function buildCandyGroupHtml(count, itemIcon, extraClass = "") {
   return `<span class="${classAttr}">${itemIcon.repeat(normalizedCount)}</span>`;
 }
 
+function buildSubtractionCandyGroupHtml(count, itemIcon, extraClass = "", perRow = 3) {
+  const normalizedCount = Math.max(0, Number(count) || 0);
+  const classAttr = `candy-group candy-group-block ${extraClass}`.trim();
+
+  if (normalizedCount === 0) {
+    return `<span class="${classAttr} candy-group-zero"><span class="candy-zero-gap" aria-label="0"></span></span>`;
+  }
+
+  const itemsHtml = Array.from({ length: normalizedCount }, () => `<span class="candy-item">${itemIcon}</span>`).join("");
+  return `<span class="${classAttr}" style="--candy-cols: ${Math.max(1, perRow)};">${itemsHtml}</span>`;
+}
+
 function buildStrikeCandyGroupHtml(count, itemIcon, extraClass = "", delayStart = 0, baseDelay = 0.9) {
   const normalizedCount = Math.max(0, Number(count) || 0);
-  const classAttr = `candy-group candy-group-strike ${extraClass}`.trim();
+  const classAttr = `candy-group candy-group-strike candy-group-block ${extraClass}`.trim();
 
   if (normalizedCount === 0) {
     return `<span class="${classAttr} candy-group-zero"><span class="candy-zero-gap" aria-label="0"></span></span>`;
@@ -316,7 +328,7 @@ function buildStrikeCandyGroupHtml(count, itemIcon, extraClass = "", delayStart 
     return `<span class="strike-candy" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
   }).join("");
 
-  return `<span class="${classAttr}">${itemsHtml}</span>`;
+  return `<span class="${classAttr}" style="--candy-cols: 3;">${itemsHtml}</span>`;
 }
 
 function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon) {
@@ -332,6 +344,23 @@ function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIc
   }
 
   return `<div class="candy-frame">${parts.join("")}</div>`;
+}
+
+function buildSubtractionCandyFrame(mainResultHtml, mainSubtractHtml, extraSubtractHtml = "") {
+  const extraRow = extraSubtractHtml
+    ? `<div class="subtraction-row subtraction-row-extra"><span class="candy-op">−</span>${extraSubtractHtml}</div>`
+    : "";
+
+  return `
+    <div class="candy-frame subtraction-frame">
+      <div class="subtraction-row subtraction-row-main">
+        ${mainResultHtml}
+        <span class="candy-op">−</span>
+        ${mainSubtractHtml}
+      </div>
+      ${extraRow}
+    </div>
+  `;
 }
 
 function updateBoardPreview() {
@@ -670,22 +699,16 @@ function prepareCalculationPhase() {
       }
       if (isOnlyBorrowSubtract) {
         const visibleFinal = Math.max(0, valA - state.carry);
-        candyContainer.innerHTML = `
-          <div class="candy-frame subtraction-frame">
-            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-            <span class="candy-op">−</span>
-            ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)}
-          </div>
-        `;
+        candyContainer.innerHTML = buildSubtractionCandyFrame(
+          buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+          buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)
+        );
       } else {
         const visibleFinal = Math.max(0, adjustedValA - valB);
-        candyContainer.innerHTML = `
-          <div class="candy-frame subtraction-frame">
-            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-            <span class="candy-op">−</span>
-            ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")}
-          </div>
-        `;
+        candyContainer.innerHTML = buildSubtractionCandyFrame(
+          buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+          buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")
+        );
       }
     } else {
       const borrowedVal = valA + 10;
@@ -700,33 +723,23 @@ function prepareCalculationPhase() {
       if (state.carry > 0) {
         const visibleFinal = Math.max(0, borrowedVal - valB - state.carry);
         if (isOnlyBorrowSubtract) {
-          candyContainer.innerHTML = `
-            <div class="candy-frame subtraction-frame">
-              ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-              <span class="candy-op">−</span>
-              ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)}
-            </div>
-          `;
+          candyContainer.innerHTML = buildSubtractionCandyFrame(
+            buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+            buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)
+          );
         } else {
-          candyContainer.innerHTML = `
-            <div class="candy-frame subtraction-frame">
-              ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-              <span class="candy-op">−</span>
-              ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike", 0, 1.0)}
-              <span class="candy-op">−</span>
-              ${buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", Math.max(0, valB), 1.0)}
-            </div>
-          `;
+          candyContainer.innerHTML = buildSubtractionCandyFrame(
+            buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+            buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike", 0, 1.0),
+            buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", Math.max(0, valB), 1.0)
+          );
         }
       } else {
         const visibleFinal = Math.max(0, adjustedValA + 10 - valB);
-        candyContainer.innerHTML = `
-          <div class="candy-frame subtraction-frame">
-            ${buildCandyGroupHtml(visibleFinal, itemIcon)}
-            <span class="candy-op">−</span>
-            ${buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")}
-          </div>
-        `;
+        candyContainer.innerHTML = buildSubtractionCandyFrame(
+          buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+          buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")
+        );
       }
     }
   } else {
