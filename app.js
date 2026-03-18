@@ -9,6 +9,7 @@ const startBtn = document.getElementById("startBtn");
 const progressFill = document.getElementById("progressFill");
 const horizontalEquation = document.getElementById("horizontalEquation");
 const verticalStack = document.getElementById("verticalStack");
+const rightCarryDisplay = document.getElementById("rightCarryDisplay");
 
 const checkAnswerBtn = document.getElementById("checkAnswerBtn");
 const stepAnswer = document.getElementById("stepAnswer");
@@ -33,6 +34,12 @@ const state = {
   frameTimers: [],
   highlightTimers: [],
   columnResults: [],
+  carryInByCol: [],
+  carryOutByCol: [],
+  pendingCarryAnimCol: -1,
+  isCheckingAnswer: false,
+  rightCarryValue: 0,
+  rightCarryTargetCol: -1,
 };
 
 function isLikelyFemaleVoice(voice) {
@@ -50,11 +57,7 @@ function initVoices() {
   state.viVoice = viVoices.find((voice) => isLikelyFemaleVoice(voice)) || viVoices[0] || null;
 }
 
-function speak(text) {
-  if (!("speechSynthesis" in window)) {
-    return;
-  }
-  window.speechSynthesis.cancel();
+function buildUtterance(text) {
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "vi-VN";
   utterance.rate = 0.9; // Slightly slower for clearer pronunciation
@@ -62,7 +65,40 @@ function speak(text) {
   if (state.viVoice) {
     utterance.voice = state.viVoice;
   }
+  return utterance;
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) {
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = buildUtterance(text);
   window.speechSynthesis.speak(utterance);
+}
+
+function speakAsync(text, timeoutMs = 3600) {
+  if (!("speechSynthesis" in window)) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve();
+    };
+
+    window.speechSynthesis.cancel();
+    const utterance = buildUtterance(text);
+    utterance.onend = finish;
+    utterance.onerror = finish;
+    window.speechSynthesis.speak(utterance);
+    setTimeout(finish, timeoutMs);
+  });
 }
 
 function updateProgress() {
@@ -255,9 +291,172 @@ function getDigitAtCol(numStr, colIndex) {
   return Number(str[str.length - 1 - colIndex]);
 }
 
+function getCellAt(lineClass, colIndex) {
+  const line = verticalStack.querySelector(`.calc-line.${lineClass}`);
+  if (!line) return null;
+  const cells = Array.from(line.querySelectorAll(".digit-cell"));
+  return cells[cells.length - 1 - colIndex] || null;
+}
+
+function clearCarryBadges() {
+  verticalStack.querySelectorAll(".carry-badge").forEach((badge) => badge.remove());
+}
+
+function setCarryBadge(targetCol, carryValue, shouldAnimate = false) {
+  if (carryValue <= 0) {
+    return;
+  }
+  const targetCell = getCellAt("l1", targetCol);
+  if (!targetCell) {
+    return;
+  }
+  const oldBadge = targetCell.querySelector(".carry-badge");
+  if (oldBadge) {
+    oldBadge.remove();
+  }
+  const badge = document.createElement("span");
+  badge.className = `carry-badge${shouldAnimate ? " carry-badge-pop" : ""}`;
+  badge.textContent = String(carryValue);
+  targetCell.appendChild(badge);
+}
+
+function hideRightCarryDisplay() {
+  if (!rightCarryDisplay) {
+    return;
+  }
+  rightCarryDisplay.classList.remove("show", "pop");
+  rightCarryDisplay.textContent = "";
+}
+
+function showRightCarryDisplay(carryValue, shouldAnimate = false) {
+  if (!rightCarryDisplay || carryValue <= 0) {
+    return;
+  }
+  rightCarryDisplay.textContent = String(carryValue);
+  rightCarryDisplay.classList.add("show");
+  if (shouldAnimate) {
+    rightCarryDisplay.classList.remove("pop");
+    void rightCarryDisplay.offsetWidth;
+    rightCarryDisplay.classList.add("pop");
+  }
+}
+
+async function animateCarryFromSideToColumn(colIndex, carryValue) {
+  if (carryValue <= 0) {
+    return;
+  }
+  const targetCell = getCellAt("l1", colIndex);
+  if (!rightCarryDisplay || !targetCell) {
+    setCarryBadge(colIndex, carryValue, true);
+    state.rightCarryValue = 0;
+    state.rightCarryTargetCol = -1;
+    hideRightCarryDisplay();
+    return;
+  }
+
+  showRightCarryDisplay(carryValue, false);
+  const fromRect = rightCarryDisplay.getBoundingClientRect();
+  const toRect = targetCell.getBoundingClientRect();
+  await animateFlyingToken(carryValue, fromRect, toRect, "flying-token-carry");
+  setCarryBadge(colIndex, carryValue, true);
+  state.rightCarryValue = 0;
+  state.rightCarryTargetCol = -1;
+  hideRightCarryDisplay();
+}
+
+function renderCarryBadges() {
+  clearCarryBadges();
+  state.carryOutByCol.forEach((carryValue, colIndex) => {
+    const targetCol = colIndex + 1;
+    const isPendingRightCarry = state.rightCarryValue > 0 && state.rightCarryTargetCol === targetCol;
+    if (carryValue > 0 && !isPendingRightCarry) {
+      setCarryBadge(targetCol, carryValue, false);
+    }
+  });
+}
+
+function animateFlyingToken(text, fromRect, toRect, className = "") {
+  return new Promise((resolve) => {
+    const token = document.createElement("div");
+    token.className = `flying-token ${className}`.trim();
+    token.textContent = String(text);
+
+    const fromX = fromRect.left + fromRect.width / 2;
+    const fromY = fromRect.top + fromRect.height / 2;
+    const toX = toRect.left + toRect.width / 2;
+    const toY = toRect.top + toRect.height / 2;
+
+    token.style.left = `${fromX}px`;
+    token.style.top = `${fromY}px`;
+
+    document.body.appendChild(token);
+
+    requestAnimationFrame(() => {
+      token.style.transform = `translate(${toX - fromX}px, ${toY - fromY}px) scale(1.12)`;
+      token.style.opacity = "0.92";
+    });
+
+    const cleanup = () => {
+      token.remove();
+      resolve();
+    };
+    token.addEventListener("transitionend", cleanup, { once: true });
+    setTimeout(cleanup, 1700);
+  });
+}
+
+async function animateAdditionResultFlow(userAnswer, resultDigit, colIndex) {
+  const inputRect = stepAnswer.getBoundingClientRect();
+  const resultCell = getCellAt("l4", colIndex);
+
+  if (!resultCell) {
+    updateBoardResult(colIndex, resultDigit);
+    return;
+  }
+
+  const resultRect = resultCell.getBoundingClientRect();
+  await animateFlyingToken(userAnswer, inputRect, resultRect, "flying-token-main");
+
+  updateBoardResult(colIndex, resultDigit);
+}
+
+async function animateCarryFromResultToSide(carryDigit, colIndex) {
+  if (carryDigit <= 0) {
+    state.rightCarryValue = 0;
+    state.rightCarryTargetCol = -1;
+    hideRightCarryDisplay();
+    return;
+  }
+
+  const resultCell = getCellAt("l4", colIndex);
+  if (!resultCell || !rightCarryDisplay) {
+    showRightCarryDisplay(carryDigit, true);
+    state.rightCarryValue = carryDigit;
+    state.rightCarryTargetCol = colIndex + 1;
+    return;
+  }
+
+  const fromRect = resultCell.getBoundingClientRect();
+  const toRect = rightCarryDisplay.getBoundingClientRect();
+  await animateFlyingToken(carryDigit, fromRect, toRect, "flying-token-carry");
+  showRightCarryDisplay(carryDigit, true);
+  state.rightCarryValue = carryDigit;
+  state.rightCarryTargetCol = colIndex + 1;
+}
+
 function prepareCalculationPhase() {
   const answerInput = document.getElementById("stepAnswer");
   answerInput.value = "";
+
+  state.carry = state.carryInByCol[state.calcCol] ?? 0;
+  renderCarryBadges();
+
+  const isPendingTransfer = state.rightCarryValue > 0 && state.rightCarryTargetCol === state.calcCol;
+  if (isPendingTransfer) {
+    showRightCarryDisplay(state.rightCarryValue, false);
+  } else {
+    hideRightCarryDisplay();
+  }
   
   const colName = getColumnName(state.calcCol);
   const valA = getDigitAtCol(state.a, state.calcCol);
@@ -288,7 +487,8 @@ function prepareCalculationPhase() {
 
   // Format carry content
   const carryText = state.carry > 0 ? `, cộng thêm ${state.carry} (số nhớ)` : '';
-  const carryCandy = state.carry > 0 ? " ➕ " + itemIcon.repeat(state.carry) : "";
+  const carryCandyClass = state.pendingCarryAnimCol === state.calcCol ? "carry-candy incoming-carry" : "carry-candy";
+  const carryCandy = state.carry > 0 ? ` <span class="${carryCandyClass}">➕ ${itemIcon.repeat(state.carry)}</span>` : "";
   
   // Đối với trường hợp trống giá trị ở cả 2 nơi nhưng có số nhớ (ví dụ cộng tràn 9+5=14)
   const isBothEmpty = (state.calcCol >= String(state.a).length) && (state.calcCol >= String(state.b).length);
@@ -296,7 +496,7 @@ function prepareCalculationPhase() {
   if (state.operation === "add") {
     if (isBothEmpty && state.carry > 0) {
       questionText = `${colName}: Hạ số nhớ ${state.carry} xuống nào!`;
-      candyContainer.innerHTML = itemIcon.repeat(state.carry);
+      candyContainer.innerHTML = `<span class="${carryCandyClass}">${itemIcon.repeat(state.carry)}</span>`;
     } else {
       questionText = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
       candyContainer.innerHTML = itemIcon.repeat(valA) + " ➕ " + itemIcon.repeat(valB) + carryCandy;
@@ -326,6 +526,7 @@ function prepareCalculationPhase() {
   
   feedbackText.textContent = "";
   feedbackText.className = "animate__animated";
+  state.pendingCarryAnimCol = -1;
 
   const existingResult = state.columnResults[state.calcCol];
   if (existingResult !== undefined && existingResult !== null) {
@@ -336,53 +537,101 @@ function prepareCalculationPhase() {
   } else {
     nextBtn.disabled = true;
   }
+
+  if (state.operation === "add" && isPendingTransfer) {
+    animateCarryFromSideToColumn(state.calcCol, state.rightCarryValue);
+  }
 }
 
 checkAnswerBtn.addEventListener("click", () => {
+  if (state.isCheckingAnswer) {
+    return;
+  }
+
   const userAnswer = Number(stepAnswer.value);
+  if (!Number.isFinite(userAnswer)) {
+    feedbackText.textContent = "Con cần nhập kết quả trước nhé!";
+    feedbackText.style.color = "var(--brand)";
+    speak("Con cần nhập kết quả trước nhé");
+    return;
+  }
+
+  state.isCheckingAnswer = true;
+  checkAnswerBtn.disabled = true;
+
   const valA = getDigitAtCol(state.a, state.calcCol);
   const valB = getDigitAtCol(state.b, state.calcCol);
-  let correctUnitAns = 0;
+  let expectedAnswer = 0;
+  let boardDigit = 0;
   let newCarry = 0;
   
   if (state.operation === "add") {
     const sum = valA + valB + state.carry;
-    correctUnitAns = sum % 10;
+    expectedAnswer = sum;
+    boardDigit = sum % 10;
     newCarry = Math.floor(sum / 10);
   } else if (state.operation === "sub") {
     let adjustedValA = valA - state.carry;
     if (adjustedValA >= valB) {
-      correctUnitAns = adjustedValA - valB;
+      expectedAnswer = adjustedValA - valB;
       newCarry = 0;
     } else {
-      correctUnitAns = adjustedValA + 10 - valB;
+      expectedAnswer = adjustedValA + 10 - valB;
       newCarry = 1;
     }
+    boardDigit = expectedAnswer;
   } else if (state.operation === "mul") {
-    correctUnitAns = (valA * valB) % 10;
+    expectedAnswer = (valA * valB) % 10;
+    boardDigit = expectedAnswer;
+  } else {
+    expectedAnswer = valA;
+    boardDigit = expectedAnswer;
   }
   
   feedbackText.classList.remove("animate__headShake", "animate__tada");
   void feedbackText.offsetWidth; // reset anim
 
-  if(userAnswer === correctUnitAns) {
+  if(userAnswer === expectedAnswer) {
       state.carry = newCarry; // Cập nhật số nhớ cho bước tiếp theo
-      state.columnResults[state.calcCol] = correctUnitAns;
+      state.columnResults[state.calcCol] = userAnswer;
+      state.carryOutByCol[state.calcCol] = newCarry;
+      state.carryInByCol[state.calcCol + 1] = newCarry;
       feedbackText.textContent = "Chính xác tuyệt vời! 🎊";
       feedbackText.style.color = "var(--ok)";
       feedbackText.classList.add("animate__tada");
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
       
-      // Hiển thị kết quả của cột lên bảng
-      updateBoardResult(state.calcCol, correctUnitAns);
+      // Hiển thị kết quả của cột lên bảng với animation tách số nhớ
+      const completeSuccess = async () => {
+        if (state.operation === "add") {
+          await animateAdditionResultFlow(userAnswer, boardDigit, state.calcCol);
+        } else {
+          updateBoardResult(state.calcCol, boardDigit);
+        }
+      };
+
+      completeSuccess()
+        .then(async () => {
+          if (state.operation === "add" && newCarry > 0) {
+            await speakAsync(`Con trả lời ${userAnswer}. Chính xác tuyệt vời, chúc mừng con. Vì phép tính lớn hơn 9, con phải nhớ ${newCarry} đơn vị ra.`);
+            await animateCarryFromResultToSide(newCarry, state.calcCol);
+            return;
+          }
+          speak(`Con trả lời ${userAnswer}. Chính xác tuyệt vời, chúc mừng con, ấn tiếp theo nào.`);
+        })
+        .finally(() => {
+          nextBtn.disabled = false;
+          checkAnswerBtn.disabled = false;
+          state.isCheckingAnswer = false;
+        });
       
-      speak("Chính xác tuyệt vời, ấn tiếp theo nào");
-      nextBtn.disabled = false;
   } else {
       feedbackText.textContent = "Chưa đúng rồi, con đếm lại kẹo thử xem nhé! 🤔";
       feedbackText.style.color = "var(--brand)";
       feedbackText.classList.add("animate__headShake");
       speak("Chưa đúng rồi, con đếm lại nhé");
+      checkAnswerBtn.disabled = false;
+      state.isCheckingAnswer = false;
   }
 });
 
@@ -495,7 +744,9 @@ function goNext() {
     }
 
     if (state.calcCol < state.maxCols - 1) {
+      const outgoingCarry = state.carryOutByCol[state.calcCol] || 0;
       state.calcCol += 1;
+      state.pendingCarryAnimCol = outgoingCarry > 0 ? state.calcCol : -1;
       prepareCalculationPhase();
       return;
     }
@@ -525,6 +776,9 @@ function goNext() {
     const finalAns = state.operation === "add" ? (state.a + state.b) : (state.operation === "sub" ? (state.a - state.b) : (state.operation === "mul" ? (state.a * state.b) : state.a / state.b));
     state.maxCols = Math.max(String(state.a).length, String(state.b).length, String(finalAns).length);
     state.columnResults = Array(state.maxCols).fill(null);
+    state.carryInByCol = Array(state.maxCols + 1).fill(0);
+    state.carryOutByCol = Array(state.maxCols).fill(0);
+    state.pendingCarryAnimCol = -1;
     
     // Rebuild vertical lines to match exact maxCols with padded spaces for alignment
     const lines = buildVerticalLines();
@@ -571,6 +825,12 @@ function resetToStart() {
   state.carry = 0;
   state.maxCols = 0;
   state.columnResults = [];
+  state.carryInByCol = [];
+  state.carryOutByCol = [];
+  state.pendingCarryAnimCol = -1;
+  state.isCheckingAnswer = false;
+  state.rightCarryValue = 0;
+  state.rightCarryTargetCol = -1;
   firstNumberInput.value = "";
   secondNumberInput.value = "";
   operationButtons.forEach((btn) => btn.classList.remove("is-active"));
@@ -586,6 +846,7 @@ function resetToStart() {
   }
   
   resetBoard();
+  hideRightCarryDisplay();
   showSlide(0);
 }
 

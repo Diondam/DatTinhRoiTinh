@@ -22,6 +22,7 @@ body {
     radial-gradient(circle at 90% 15%, #cdefff 0%, transparent 35%),
     linear-gradient(140deg, var(--bg1), var(--bg2));
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .app-shell {
@@ -54,6 +55,7 @@ body {
 }
 
 .board-canvas {
+  position: relative;
   min-height: 300px;
   border-radius: 12px;
   padding: 1rem;
@@ -63,6 +65,37 @@ body {
   justify-content: center;
   gap: 0.8rem;
   background: rgba(0, 0, 0, 0.08);
+}
+
+.right-carry-display {
+  position: absolute;
+  right: 2.8rem;
+  top: 63%;
+  transform: translateY(-50%) scale(0.8);
+  min-width: 1.25em;
+  min-height: 1.25em;
+  border: 3px dashed #ffe286;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Patrick Hand", cursive;
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  font-weight: 700;
+  color: #d9d0f5;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 0 0 rgba(255, 226, 134, 0);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+.right-carry-display.show {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.right-carry-display.pop {
+  animation: rightCarryPop 0.55s ease;
 }
 
 .horizontal-equation {
@@ -89,7 +122,7 @@ body {
   font-size: clamp(3.5rem, 12vw, 6rem);
   font-weight: 700;
   line-height: 1.1;
-  padding-right: 25%; /* Move the numbers toward the center while remaining right-aligned */
+  padding-right: 14%; /* Keep content inside board for large numbers */
 }
 
 .calc-line {
@@ -110,7 +143,7 @@ body {
 
 .calc-line.l2 .op-symbol {
   position: absolute;
-  left: -1.2em; /* Keep operator to the left of the bottom number */
+  left: -0.82em; /* Pull operator inward so it does not hug board edge */
 }
 
 .calc-line.l3 {
@@ -133,9 +166,23 @@ body {
   text-align: center;
 }
 
+.carry-badge {
+  position: absolute;
+  top: -0.75em;
+  right: 0.1em;
+  font-size: 0.42em;
+  color: #ffe286;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.carry-badge-pop {
+  animation: carryPop 0.45s ease;
+}
+
 .op-symbol {
   position: absolute;
-  left: -1.2em;
+  left: -0.82em;
 }
 
 /* Cột đang được tính (hàng đơn vị, hàng chục...) */
@@ -329,6 +376,37 @@ body {
   white-space: nowrap;
 }
 
+.carry-candy {
+  display: inline-block;
+  margin-left: 0.3rem;
+}
+
+.incoming-carry {
+  animation: carryIntoCandy 0.7s ease;
+}
+
+.flying-token {
+  position: fixed;
+  z-index: 9999;
+  transform: translate(0, 0) scale(1.38);
+  transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 1.2s ease;
+  font-size: 3.4rem;
+  color: #d9d0f5;
+  font-weight: 700;
+  text-shadow: none;
+  pointer-events: none;
+}
+
+.flying-token-main {
+  color: #d9d0f5;
+}
+
+.flying-token-carry {
+  color: #d9d0f5;
+  font-size: clamp(3.5rem, 12vw, 6rem);
+  text-shadow: none;
+}
+
 .input-group {
   flex: 1;
   display: flex;
@@ -425,6 +503,51 @@ body {
   }
 }
 
+@keyframes carryPop {
+  0% {
+    transform: translateY(8px) scale(0.7);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(-2px) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes carryIntoCandy {
+  0% {
+    transform: translateY(-18px) scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(2px) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rightCarryPop {
+  0% {
+    box-shadow: 0 0 0 rgba(255, 226, 134, 0);
+    transform: translateY(-50%) scale(0.7);
+  }
+  55% {
+    box-shadow: 0 0 24px rgba(255, 226, 134, 0.5);
+    transform: translateY(-50%) scale(1.12);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 226, 134, 0);
+    transform: translateY(-50%) scale(1);
+  }
+}
+
 @keyframes focusPulse {
   0% {
     box-shadow: 0 0 0 0 rgba(255, 138, 28, 0.7);
@@ -505,5 +628,45 @@ body {
   .btn-check-answer {
     width: 100%;
     min-height: 62px;
+  }
+
+  .right-carry-display {
+    right: 0.9rem;
+    top: 61%;
+    min-width: 1.2em;
+    min-height: 1.2em;
+    font-size: clamp(2.7rem, 10.2vw, 4.2rem);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 980px) {
+  .app-shell {
+    max-width: 1320px;
+    grid-template-columns: minmax(360px, 0.95fr) minmax(540px, 1.45fr);
+    align-items: start;
+  }
+
+  .slides-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .board-section {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .board-canvas {
+    min-height: calc(100vh - 170px);
+  }
+
+  .vertical-stack {
+    min-height: 190px;
+    padding-right: 12%;
+    font-size: clamp(2.8rem, 6.5vw, 4.8rem);
+  }
+
+  .slides-wrap {
+    min-height: 140px;
   }
 }
