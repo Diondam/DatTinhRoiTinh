@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đặt Tính Rồi Tính</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="board-section card">
+      <div class="board-head">Bảng đặt tính</div>
+      <div class="board-canvas">
+        <div id="horizontalEquation" class="horizontal-equation">Chọn phép tính để bắt đầu</div>
+        <div id="verticalStack" class="vertical-stack"></div>
+      </div>
+    </section>
+
+    <section class="slides-section card">
+      <div class="top-nav-row">
+        <div class="left-nav-actions">
+          <button id="backBtn" class="btn btn-game"><i class="bi bi-arrow-left-circle-fill"></i> Quay lại</button>
+          <button id="replayBtn" class="btn btn-game"><i class="bi bi-volume-up-fill"></i> Đọc lại</button>
+        </div>
+        <button id="nextBtn" class="btn btn-primary btn-game next-wiggle"><i class="bi bi-arrow-right-circle-fill"></i> Tiếp theo</button>
+      </div>
+
+      <div class="slide-progress" aria-label="Tiến độ slide">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+
+      <div class="slides-wrap">
+        <article class="slide is-active intro-slide" data-slide="0">
+          <h2>Bắt đầu</h2>
+          <p>Sẵn sàng học đặt tính chưa nào?</p>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <button id="startBtn" class="btn btn-primary btn-game">🚀 Bắt đầu</button>
+            <button id="quickStartBtn" class="btn btn-primary btn-game" style="display: none; background-color: var(--ok);">⚡ Làm nhanh</button>
+          </div>
+        </article>
+
+        <article class="slide" data-slide="1">
+          <h2>Bước 1</h2>
+          <p>Chọn phép tính</p>
+          <div class="option-row" role="group" aria-label="Chọn phép tính">
+            <button class="option-btn" data-op="add"><span class="op-icon">➕</span><br>Cộng</button>
+            <button class="option-btn" data-op="sub"><span class="op-icon">➖</span><br>Trừ</button>
+            <button class="option-btn" data-op="mul"><span class="op-icon">✖️</span><br>Nhân</button>
+            <button class="option-btn" data-op="div"><span class="op-icon">➗</span><br>Chia</button>
+          </div>
+        </article>
+
+        <article class="slide" data-slide="2">
+          <h2>Bước 2</h2>
+          <p>Nhập hai số</p>
+          <div class="numbers-row">
+            <div class="input-group">
+              <label for="firstNumber">Số thứ nhất</label>
+              <input id="firstNumber" type="number" inputmode="numeric" placeholder="Ví dụ: 12">
+            </div>
+            <div class="input-group">
+              <label for="secondNumber">Số thứ hai</label>
+              <input id="secondNumber" type="number" inputmode="numeric" placeholder="Ví dụ: 34">
+            </div>
+          </div>
+        </article>
+
+        <article class="slide" data-slide="3">
+          <h2>Bước 3</h2>
+          <p>Nhìn lên bảng và theo dõi phép tính</p>
+          <div class="mini-note">Bấm Tiếp theo để bắt đầu tính toán</div>
+        </article>
+
+        <article class="slide" data-slide="4">
+          <h2 id="step4Title">Bước 4: Tính hàng đơn vị</h2>
+          <p id="mathQuestionText">Con có 4 cái kẹo, cộng thêm 4 cái kẹo nữa thì bằng bao nhiêu?</p>
+          <div id="candyContainer" class="candy-container animate__animated" style="font-size: 2.5rem; margin: 15px 0;">
+            <!-- Hiển thị 🍬 tại đây -->
+          </div>
+          <div class="answer-inline">
+            <div class="input-group answer-input-group">
+              <label for="stepAnswer">Kết quả của con là:</label>
+              <input id="stepAnswer" class="large-input" type="number" inputmode="numeric" placeholder="?">
+            </div>
+            <button id="checkAnswerBtn" class="btn btn-primary btn-game btn-check-answer">
+              <i class="bi bi-patch-check-fill"></i> Kiểm tra
+            </button>
+          </div>
+          <p id="feedbackText" class="animate__animated" style="font-weight: bold; margin-top: 10px; font-size: 1.2rem;"></p>
+        </article>
+
+        <article class="slide" data-slide="5">
+          <h2>Bước 5: Chốt đáp án</h2>
+          <p id="finalSummaryText" class="final-summary">Vậy phép tính ... có kết quả là ... Chúc mừng con!</p>
+          <div class="final-celebration">
+            <div class="celebrate-icons">🎉 🎊 ✨ 🎆</div>
+            <div class="mini-note">Con đã hoàn thành rất tốt. Bấm Tiếp theo để làm bài mới nhé.</div>
+          </div>
+        </article>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
