@@ -725,7 +725,7 @@ checkAnswerBtn.addEventListener("click", () => {
           return;
         }
 
-        speak("Đúng rồi. Con ấn tiếp theo nhé.");
+        speak("Rất tốt. Con ấn tiếp theo nhé.");
       };
 
       completeSuccess()
