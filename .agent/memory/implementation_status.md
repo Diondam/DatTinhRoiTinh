@@ -1,10 +1,10 @@
 # Implementation Status
 
 ## Last Updated
-2026-03-19 (step-4 candy frame UI + step-5 final answer narration)
+2026-03-19 (board-first start flow + post-check blink polish)
 
 ## Current Focus
-Refine child-friendly presentation in step 4 and guarantee final answer is clearly spoken in step 5.
+Polish onboarding flow and remove distracting visual blinking during step 4 answer confirmation.
 
 ## Recent Changes
 - Updated [index.html](index.html):
@@ -45,13 +45,22 @@ Refine child-friendly presentation in step 4 and guarantee final answer is clear
 - Updated [styles.css](styles.css):
   - Added step-4 candy frame styling (`candy-frame`, `candy-group`, `candy-zero-gap`, `candy-op`).
   - Hid `#mathQuestionText` from visible layout.
+- Updated [index.html](index.html):
+  - Added board overlay welcome UI and moved primary start CTA into board (`boardWelcome`, `boardStartBtn`).
+  - Set slides section hidden by default and reveal it only after start.
+- Updated [app.js](app.js):
+  - Added board-first app flow state (`hasStarted`) with `beginLesson()` and section visibility toggling.
+  - Updated board preview text before start to: "Chào mừng con đến với toantieuhoc.org.".
+  - On correct check in step 4, blur answer input and stop bounce class to avoid persistent blinking perception.
+- Updated [styles.css](styles.css):
+  - Added board welcome overlay styles and hidden-state utility for slides section.
 - Initialized Git repository and created first commit:
   - Commit: `852c6ce` with message "Initial commit".
 
 ## Next Steps
-- Runtime-test addition columns with zero addend and carry (e.g., 678 + 78) to verify visual spacing clarity.
-- Check text-to-speech pronunciation of longer results in step 5 across available Vietnamese voices.
-- Decide whether subtraction and multiplication should adopt the same framed object-visual style for consistency.
+- Verify first-load UX on mobile: board start CTA visibility and transition to slides section.
+- Tune welcome overlay opacity and heading size if users want stronger board visibility behind intro.
+- Revisit optional quick-start placement now that slides are initially hidden.
 
 ## Technical Context
 - Stack: plain HTML/CSS/JavaScript + CDN libraries.

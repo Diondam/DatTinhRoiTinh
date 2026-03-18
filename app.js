@@ -6,6 +6,9 @@ const backBtn = document.getElementById("backBtn");
 const nextBtn = document.getElementById("nextBtn");
 const replayBtn = document.getElementById("replayBtn");
 const startBtn = document.getElementById("startBtn");
+const boardStartBtn = document.getElementById("boardStartBtn");
+const boardWelcome = document.getElementById("boardWelcome");
+const slidesSection = document.getElementById("slidesSection");
 const progressFill = document.getElementById("progressFill");
 const horizontalEquation = document.getElementById("horizontalEquation");
 const verticalStack = document.getElementById("verticalStack");
@@ -29,6 +32,7 @@ const state = {
   carry: 0,
   maxCols: 2,
   hasPlayed: false,
+  hasStarted: false,
   viVoice: null,
   typingTimer: null,
   frameTimers: [],
@@ -84,14 +88,6 @@ function stopSpeaking() {
     return;
   }
   window.speechSynthesis.cancel();
-}
-
-function releaseTransientFlowLocks() {
-  // Prevent stale async narration/animation locks from blocking navigation.
-  state.isFlowAnimating = false;
-  state.isCheckingAnswer = false;
-  checkAnswerBtn.disabled = false;
-  stopSpeaking();
 }
 
 function speakAsync(text, timeoutMs = 3600) {
@@ -167,7 +163,10 @@ function showSlide(index) {
     nextBtn.innerHTML = `<i class="bi bi-arrow-right-circle-fill"></i> Tiếp theo`;
   }
 
-  if (index === 5) {
+  if (index === 4) {
+    const hasSolvedCurrentCol = state.columnResults[state.calcCol] !== undefined && state.columnResults[state.calcCol] !== null;
+    nextBtn.disabled = !hasSolvedCurrentCol;
+  } else {
     nextBtn.disabled = false;
   }
   updateProgress();
@@ -289,6 +288,11 @@ function updateBoardPreview() {
   clearBoardTimers();
   verticalStack.innerHTML = "";
 
+  if (!state.hasStarted) {
+    horizontalEquation.textContent = "";
+    return;
+  }
+
   if (!state.operation) {
     horizontalEquation.textContent = "Chọn phép tính để bắt đầu";
     return;
@@ -302,6 +306,22 @@ function updateBoardPreview() {
 
 function resetBoard() {
   updateBoardPreview();
+}
+
+function setBoardWelcomeVisibility(isVisible) {
+  if (boardWelcome) {
+    boardWelcome.classList.toggle("is-hidden", !isVisible);
+  }
+  if (slidesSection) {
+    slidesSection.classList.toggle("is-hidden", isVisible);
+  }
+}
+
+function beginLesson() {
+  state.hasStarted = true;
+  setBoardWelcomeVisibility(false);
+  updateBoardPreview();
+  showSlide(1);
 }
 
 function setOperation(op) {
@@ -547,9 +567,6 @@ function prepareCalculationPhase() {
   const valB = getDigitAtCol(state.b, state.calcCol);
   
   let questionText = "";
-  let narrationBeforeCarry = "";
-  let narrationCarry = "";
-  let narrationAfterCarry = "";
   let itemIcon = "🍬";
   
   // Đóng khung cột tương ứng (từ phải sang trái)
@@ -586,11 +603,6 @@ function prepareCalculationPhase() {
     } else {
       questionText = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
       candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon);
-      if (state.carry > 0) {
-        narrationBeforeCarry = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa.`;
-        narrationCarry = `Cộng thêm ${state.carry} số nhớ.`;
-        narrationAfterCarry = "Thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.";
-      }
     }
   } else if (state.operation === "sub") {
     // Có nhớ (cần trừ đi 1)
@@ -615,31 +627,7 @@ function prepareCalculationPhase() {
   if (mathQuestionText) {
     mathQuestionText.textContent = questionText;
   }
-
-  if (isPendingTransfer) {
-    state.isFlowAnimating = true;
-    checkAnswerBtn.disabled = true;
-    const incomingCarryValue = state.rightCarryValue;
-    const targetCol = state.calcCol;
-
-    (async () => {
-      if (narrationCarry) {
-        await speakAsync(narrationBeforeCarry, 5200);
-        await speakAsync(narrationCarry, 4200);
-        await animateCarryFromSideToColumn(targetCol, incomingCarryValue);
-        await speakAsync(narrationAfterCarry, 5400);
-        return;
-      }
-
-      await speakAsync(questionText, 5600);
-      await animateCarryFromSideToColumn(targetCol, incomingCarryValue);
-    })().finally(() => {
-      state.isFlowAnimating = false;
-      checkAnswerBtn.disabled = false;
-    });
-  } else {
-    speak(questionText);
-  }
+  speak(questionText);
   
   feedbackText.textContent = "";
   feedbackText.className = "animate__animated";
@@ -655,6 +643,9 @@ function prepareCalculationPhase() {
     nextBtn.disabled = true;
   }
 
+  if (isPendingTransfer) {
+    animateCarryFromSideToColumn(state.calcCol, state.rightCarryValue);
+  }
 }
 
 checkAnswerBtn.addEventListener("click", () => {
@@ -715,7 +706,9 @@ checkAnswerBtn.addEventListener("click", () => {
       feedbackText.textContent = "Chính xác tuyệt vời! 🎊";
       feedbackText.style.color = "var(--ok)";
       feedbackText.classList.add("animate__tada");
-      speak(`Đúng rồi, là ${expectedAnswer}, con giỏi lắm!`);
+      candyContainer.classList.remove("animate__bounceIn");
+      stepAnswer.blur();
+      speak("Đúng rồi, giỏi lắm!");
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
       
       const completeSuccess = async () => {
@@ -732,7 +725,7 @@ checkAnswerBtn.addEventListener("click", () => {
           return;
         }
 
-        speak("Con ấn tiếp theo nhé.");
+        speak("Đúng rồi. Con ấn tiếp theo nhé.");
       };
 
       completeSuccess()
@@ -899,11 +892,8 @@ function validateSlideBeforeNext() {
 
 function goNext() {
   if (state.isFlowAnimating) {
-    if (state.isCheckingAnswer) {
-      speak("Đợi animation xong đã rồi mình qua bước tiếp theo nhé.");
-      return;
-    }
-    releaseTransientFlowLocks();
+    speak("Đợi animation xong đã rồi mình qua bước tiếp theo nhé.");
+    return;
   }
 
   if (!validateSlideBeforeNext()) {
@@ -979,12 +969,10 @@ function goNext() {
 }
 
 function goBack() {
-  if (state.isFlowAnimating && state.isCheckingAnswer) {
+  if (state.isFlowAnimating) {
     speak("Đợi animation xong đã rồi mình quay lại nhé.");
     return;
   }
-  releaseTransientFlowLocks();
-  clearBoardTimers();
 
   if (state.slide === 0) {
     return;
@@ -1023,6 +1011,7 @@ function resetToStart() {
   state.carryInByCol = [];
   state.carryOutByCol = [];
   state.pendingCarryAnimCol = -1;
+  state.hasStarted = false;
   state.isCheckingAnswer = false;
   state.isFlowAnimating = false;
   state.calcSessionKey = "";
@@ -1044,7 +1033,7 @@ function resetToStart() {
   
   resetBoard();
   hideRightCarryDisplay();
-  releaseTransientFlowLocks();
+  setBoardWelcomeVisibility(true);
   showSlide(0);
 }
 
@@ -1060,13 +1049,16 @@ operationButtons.forEach((btn) => {
   btn.addEventListener("click", () => setOperation(btn.dataset.op));
 });
 
-startBtn.addEventListener("click", () => {
-  showSlide(1);
-});
+startBtn.addEventListener("click", beginLesson);
+if (boardStartBtn) {
+  boardStartBtn.addEventListener("click", beginLesson);
+}
 
 const quickStartBtn = document.getElementById("quickStartBtn");
 if (quickStartBtn) {
   quickStartBtn.addEventListener("click", () => {
+    state.hasStarted = true;
+    setBoardWelcomeVisibility(false);
     // Tự sinh phép toán Random
     const ops = ["add", "sub"];
     state.operation = ops[Math.floor(Math.random() * ops.length)];

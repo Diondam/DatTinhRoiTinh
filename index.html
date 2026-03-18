@@ -18,13 +18,17 @@
     <section class="board-section card">
       <div class="board-head">Bảng đặt tính</div>
       <div class="board-canvas">
-        <div id="horizontalEquation" class="horizontal-equation">Chọn phép tính để bắt đầu</div>
+        <div id="horizontalEquation" class="horizontal-equation"></div>
         <div id="verticalStack" class="vertical-stack"></div>
         <div id="rightCarryDisplay" class="right-carry-display" aria-live="polite"></div>
+        <div id="boardWelcome" class="board-welcome">
+          <p class="board-welcome-text">Chào mừng con đến với toantieuhoc.org.</p>
+          <button id="boardStartBtn" class="btn btn-primary btn-game board-start-btn"><i class="bi bi-play-circle-fill"></i> Bắt đầu</button>
+        </div>
       </div>
     </section>
 
-    <section class="slides-section card">
+    <section class="slides-section card is-hidden" id="slidesSection">
       <div class="top-nav-row">
         <div class="left-nav-actions">
           <button id="backBtn" class="btn btn-game"><i class="bi bi-arrow-left-circle-fill"></i> Quay lại</button>

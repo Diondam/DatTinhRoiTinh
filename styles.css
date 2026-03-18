@@ -67,6 +67,37 @@ body {
   background: rgba(0, 0, 0, 0.08);
 }
 
+.board-welcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: rgba(12, 77, 93, 0.66);
+  border-radius: 12px;
+  z-index: 4;
+}
+
+.board-welcome.is-hidden {
+  display: none;
+}
+
+.board-welcome-text {
+  margin: 0;
+  color: #d9d0f5;
+  font-family: "Patrick Hand", cursive;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  text-align: center;
+}
+
+.board-start-btn {
+  min-width: 190px;
+  min-height: 62px;
+  font-size: 1.15rem;
+}
+
 .right-carry-display {
   position: absolute;
   right: 2.8rem;
@@ -238,6 +269,10 @@ body {
 .slides-section {
   display: grid;
   gap: 0.75rem;
+}
+
+.slides-section.is-hidden {
+  display: none;
 }
 
 .top-nav-row {
