@@ -363,6 +363,42 @@ function buildSubtractionCandyFrame(mainResultHtml, mainSubtractHtml, extraSubtr
   `;
 }
 
+function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIcon, perRow = 3, baseDelay = 1.0) {
+  const normalizedTotal = Math.max(0, Number(totalCount) || 0);
+  const normalizedSubtract = Math.max(0, Math.min(Number(subtractCount) || 0, normalizedTotal));
+  const normalizedCarry = Math.max(0, Math.min(Number(carryCount) || 0, normalizedTotal - normalizedSubtract));
+
+  let subtractIndex = 0;
+  let carryIndex = 0;
+  const itemsHtml = Array.from({ length: normalizedTotal }, (_, index) => {
+    if (index < normalizedSubtract) {
+      const strikeDelay = baseDelay + subtractIndex * 0.2;
+      subtractIndex += 1;
+      return `<span class="strike-candy main-strike-token" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+    }
+
+    if (index < normalizedSubtract + normalizedCarry) {
+      const strikeDelay = baseDelay + normalizedSubtract * 0.2 + carryIndex * 0.2;
+      carryIndex += 1;
+      return `<span class="strike-candy borrow-extra-token" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+    }
+
+    return `<span class="candy-item">${itemIcon}</span>`;
+  }).join("");
+
+  const candyGroup = `<span class="candy-group candy-group-block borrow-flow-group" style="--candy-cols: ${Math.max(1, perRow)};">${itemsHtml}</span>`;
+
+  return `
+    <div class="candy-frame subtraction-frame borrow-flow-frame">
+      <div class="subtraction-row subtraction-row-main">${candyGroup}</div>
+      <div class="subtraction-row subtraction-row-extra borrow-flow-hint">
+        <span class="candy-op">−</span><span class="borrow-flow-label">${normalizedSubtract}</span>
+        <span class="candy-op">−</span><span class="borrow-flow-label borrow-carry-label">${normalizedCarry}</span>
+      </div>
+    </div>
+  `;
+}
+
 function updateBoardPreview() {
   clearBoardTimers();
   verticalStack.innerHTML = "";
@@ -723,17 +759,20 @@ function prepareCalculationPhase() {
         questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
       }
       if (state.carry > 0) {
-        const visibleFinal = Math.max(0, borrowedVal - valB - state.carry);
+        const baseBeforeSubtract = Math.max(0, borrowedVal);
         if (isOnlyBorrowSubtract) {
           candyContainer.innerHTML = buildSubtractionCandyFrame(
-            buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
+            buildSubtractionCandyGroupHtml(baseBeforeSubtract, itemIcon),
             buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)
           );
         } else {
-          candyContainer.innerHTML = buildSubtractionCandyFrame(
-            buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
-            buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike", 0, 1.0),
-            buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", Math.max(0, valB), 1.0)
+          candyContainer.innerHTML = buildBorrowFlowCandyFrame(
+            baseBeforeSubtract,
+            valB,
+            state.carry,
+            itemIcon,
+            3,
+            1.0
           );
         }
       } else {

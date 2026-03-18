@@ -494,6 +494,28 @@ body {
   line-height: 1;
 }
 
+.borrow-flow-frame .subtraction-row-extra {
+  margin-left: 0;
+}
+
+.borrow-flow-hint {
+  opacity: 0.9;
+  gap: 0.22rem;
+}
+
+.borrow-flow-label {
+  color: #d9d0f5;
+  font-size: 0.78em;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 1.1em;
+  text-align: center;
+}
+
+.borrow-carry-label {
+  color: #ffe286;
+}
+
 .subtraction-frame .candy-op {
   align-self: center;
   flex: 0 0 auto;
@@ -544,6 +566,21 @@ body {
 }
 
 .borrow-extra-strike .strike-candy::after {
+  background: rgba(255, 214, 102, 0.96);
+  height: 0.11em;
+}
+
+.strike-candy.main-strike-token {
+  opacity: 0.96;
+  filter: saturate(0.95);
+}
+
+.strike-candy.borrow-extra-token {
+  opacity: 0.98;
+  filter: grayscale(0.05);
+}
+
+.strike-candy.borrow-extra-token::after {
   background: rgba(255, 214, 102, 0.96);
   height: 0.11em;
 }
