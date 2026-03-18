@@ -181,7 +181,7 @@ function speakCurrentSlide() {
     return;
   }
   if (state.slide === 1) {
-    speak("Bước một. Con hướng chuột vào nút cộng, trừ, nhân hoặc chia, rồi ấn để chọn.");
+    speak("Bước một. Con hướng chuột vào nút cộng hoặc trừ, rồi ấn để chọn.");
     return;
   }
   if (state.slide === 2) {
@@ -404,6 +404,10 @@ function beginLesson() {
 }
 
 function setOperation(op) {
+  if (op !== "add" && op !== "sub") {
+    speak("Tạm thời mình học cộng và trừ trước nhé.");
+    return;
+  }
   state.operation = op;
   operationButtons.forEach((btn) => {
     btn.classList.toggle("is-active", btn.dataset.op === op);
@@ -412,8 +416,6 @@ function setOperation(op) {
   const labels = {
     add: "Đã chọn phép cộng",
     sub: "Đã chọn phép trừ",
-    mul: "Đã chọn phép nhân",
-    div: "Đã chọn phép chia"
   };
   speak(labels[op] || "");
 }
@@ -1006,6 +1008,10 @@ function validateSlideBeforeNext() {
     }
     if (a < 0 || b < 0) {
       speak("Con hãy nhập số lớn hơn hoặc bằng không.");
+      return false;
+    }
+    if (state.operation === "sub" && a < b) {
+      speak("Với phép trừ này con nhập lại nhé, vì mình chưa học số âm đâu.");
       return false;
     }
     state.a = Math.floor(a);
