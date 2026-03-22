@@ -178,23 +178,23 @@ function showSlide(index) {
 
 function speakCurrentSlide() {
   if (state.slide === 0) {
-    speak("Chào con. Bấm nút bắt đầu để vào bài nhé.");
+    speak("Chào bạn. Bấm nút bắt đầu để vào bài nhé.");
     return;
   }
   if (state.slide === 1) {
-    speak("Bước một. Con hướng chuột vào nút cộng hoặc trừ, rồi ấn để chọn.");
+    speak("Bước một. Bạn hướng chuột vào nút cộng hoặc trừ, rồi ấn để chọn.");
     return;
   }
   if (state.slide === 2) {
-    speak("Bước hai. Con vào ô thứ nhất có viền xanh để nhập số thứ nhất, rồi vào ô thứ hai có viền vàng để nhập số thứ hai.");
+    speak("Bước hai. Bạn vào ô thứ nhất có viền xanh để nhập số thứ nhất, rồi vào ô thứ hai có viền vàng để nhập số thứ hai.");
     return;
   }
   if (state.slide === 4) {
-    speak(state.step4Prompt || "Bước bốn. Con làm phép tính theo từng cột rồi bấm kiểm tra.");
+    speak(state.step4Prompt || "Bước bốn. Bạn làm phép tính theo từng cột rồi bấm kiểm tra.");
     return;
   }
   if (state.slide === 5) {
-    speak(state.finalNarrationText || finalSummaryText?.textContent || "Chúc mừng con đã hoàn thành bài toán.");
+    speak(state.finalNarrationText || finalSummaryText?.textContent || "Chúc mừng bạn đã hoàn thành bài toán.");
     return;
   }
   const symbol = getOperationWord();
@@ -232,9 +232,9 @@ function showFinalStep() {
   const operationWord = getOperationWord();
   const finalResult = getFinalResult();
   if (finalSummaryText) {
-    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Chúc mừng con!`;
+    finalSummaryText.textContent = `Vậy phép tính ${state.a} ${symbol} ${state.b} có kết quả là ${finalResult}. Chúc mừng bạn!`;
   }
-  state.finalNarrationText = `Vậy phép tính ${state.a} ${operationWord} ${state.b} bằng ${finalResult}. Chúc mừng con!`;
+  state.finalNarrationText = `Vậy phép tính ${state.a} ${operationWord} ${state.b} bằng ${finalResult}. Chúc mừng bạn!`;
 
   // Step 5: only show animated horizontal equation with final result.
   clearBoardTimers();
@@ -752,7 +752,7 @@ function prepareCalculationPhase() {
       questionText = `${colName}: Hạ số nhớ ${state.carry} xuống nào!`;
       candyContainer.innerHTML = `<div class="candy-frame">${buildCandyGroupHtml(state.carry, itemIcon, carryCandyClass)}</div>`;
     } else {
-      questionText = `Bây giờ ${colName}, con có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
+      questionText = `Bây giờ ${colName}, bạn có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
       candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon);
     }
   } else if (state.operation === "sub") {
@@ -762,11 +762,11 @@ function prepareCalculationPhase() {
     if (adjustedValA >= valB) {
       const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
       if (isOnlyBorrowSubtract) {
-         questionText = `Ở ${colName}: cột này không phải trừ kẹo nào ở dưới cả, con chỉ cần trừ đi 1 cái nhớ thôi. ${valA} trừ 1 còn bao nhiêu nào?`;
+        questionText = `Ở ${colName}: cột này không phải trừ kẹo nào ở dưới cả, bạn chỉ cần trừ đi 1 cái nhớ thôi. ${valA} trừ 1 còn bao nhiêu nào?`;
       } else if (state.carry > 0) {
-         questionText = `Ở ${colName}: con có ${valA}, bị trừ đi 1 (vì lúc nãy mượn) nên còn ${adjustedValA}. Bây giờ lấy ${adjustedValA} cái kẹo trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
+        questionText = `Ở ${colName}: bạn có ${valA}, bị trừ đi 1 (vì lúc nãy mượn) nên còn ${adjustedValA}. Bây giờ lấy ${adjustedValA} cái kẹo trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
       } else {
-         questionText = `Ở ${colName}: con có ${valA} cái kẹo, bị trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
+        questionText = `Ở ${colName}: bạn có ${valA} cái kẹo, bị trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
       }
       if (isOnlyBorrowSubtract) {
         const visibleFinal = Math.max(0, valA - state.carry);
@@ -785,9 +785,9 @@ function prepareCalculationPhase() {
       const borrowedVal = valA + 10;
       const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
       if (isOnlyBorrowSubtract) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn 0 sau khi trừ nhớ nên mình phải mượn 1 chục, thành ${borrowedVal}. Cột này không trừ kẹo nào ở dưới, con chỉ cần trừ đi 1 cái nhớ còn bao nhiêu thôi nhé.`;
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn 0 sau khi trừ nhớ nên mình phải mượn 1 chục, thành ${borrowedVal}. Cột này không trừ kẹo nào ở dưới, bạn chỉ cần trừ đi 1 cái nhớ còn bao nhiêu thôi nhé.`;
       } else if (state.carry > 0) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Con nhìn số kẹo bị gạch để xem sau bước 1 còn bao nhiêu, rồi trừ tiếp 1 cái nhớ nhé.`;
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Bạn nhìn số kẹo bị gạch để xem sau bước 1 còn bao nhiêu, rồi trừ tiếp 1 cái nhớ nhé.`;
       } else {
         questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
       }
@@ -834,7 +834,7 @@ function prepareCalculationPhase() {
   const existingResult = state.columnResults[state.calcCol];
   if (existingResult !== undefined && existingResult !== null) {
     answerInput.value = existingResult;
-    feedbackText.textContent = "Con đã làm đúng cột này rồi. Bấm Tiếp theo nhé!";
+    feedbackText.textContent = "Bạn đã làm đúng cột này rồi. Bấm Tiếp theo nhé!";
     feedbackText.style.color = "var(--ok)";
     nextBtn.disabled = false;
   } else {
@@ -853,9 +853,9 @@ checkAnswerBtn.addEventListener("click", () => {
 
   const userAnswer = Number(stepAnswer.value);
   if (!Number.isFinite(userAnswer)) {
-    feedbackText.textContent = "Con cần nhập kết quả trước nhé!";
+    feedbackText.textContent = "Bạn cần nhập kết quả trước nhé!";
     feedbackText.style.color = "var(--brand)";
-    speak("Con cần nhập kết quả trước nhé");
+    speak("Bạn cần nhập kết quả trước nhé");
     return;
   }
 
@@ -917,8 +917,8 @@ checkAnswerBtn.addEventListener("click", () => {
 
         if (newCarry > 0) {
           const carrySpeech = state.operation === "add"
-            ? `Bây giờ con nhớ ${newCarry} vì tổng lớn hơn chín nhé.`
-            : `Bây giờ con cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`;
+            ? `Bây giờ bạn nhớ ${newCarry} vì tổng lớn hơn chín nhé.`
+            : `Bây giờ bạn cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`;
           await speakAsync(carrySpeech);
           await animateCarryFromResultToSide(newCarry, state.calcCol);
           if (landedValue !== boardDigit) {
@@ -928,7 +928,7 @@ checkAnswerBtn.addEventListener("click", () => {
           return;
         }
 
-        speak("Rất tốt. Con ấn tiếp theo nhé.");
+        speak("Rất tốt. Bạn ấn tiếp theo nhé.");
       };
 
       completeSuccess()
@@ -940,10 +940,10 @@ checkAnswerBtn.addEventListener("click", () => {
         });
       
   } else {
-      feedbackText.textContent = "Chưa đúng rồi, con đếm lại kẹo thử xem nhé! 🤔";
+      feedbackText.textContent = "Chưa đúng rồi, bạn đếm lại kẹo thử xem nhé! 🤔";
       feedbackText.style.color = "var(--brand)";
       feedbackText.classList.add("animate__headShake");
-      speak("Chưa đúng rồi, con đếm lại nhé");
+      speak("Chưa đúng rồi, bạn đếm lại nhé");
       checkAnswerBtn.disabled = false;
       state.isCheckingAnswer = false;
       state.isFlowAnimating = false;
@@ -1068,7 +1068,7 @@ function runBoardAnimation() {
 function validateSlideBeforeNext() {
   if (state.slide === 1) {
     if (!state.operation) {
-      speak("Con cần chọn phép tính trước đã.");
+      speak("Bạn cần chọn phép tính trước đã.");
       return false;
     }
     return true;
@@ -1078,15 +1078,15 @@ function validateSlideBeforeNext() {
     const a = Number(firstNumberInput.value);
     const b = Number(secondNumberInput.value);
     if (!Number.isFinite(a) || !Number.isFinite(b)) {
-      speak("Con hãy nhập đủ hai số.");
+      speak("Bạn hãy nhập đủ hai số.");
       return false;
     }
     if (a < 0 || b < 0) {
-      speak("Con hãy nhập số lớn hơn hoặc bằng không.");
+      speak("Bạn hãy nhập số lớn hơn hoặc bằng không.");
       return false;
     }
     if (state.operation === "sub" && a < b) {
-      speak("Với phép trừ này con nhập lại nhé, vì mình chưa học số âm đâu.");
+      speak("Với phép trừ này bạn nhập lại nhé, vì mình chưa học số âm đâu.");
       return false;
     }
     state.a = Math.floor(a);
@@ -1114,7 +1114,7 @@ function goNext() {
 
   if (state.slide === 4) {
     if (state.columnResults[state.calcCol] === undefined || state.columnResults[state.calcCol] === null) {
-      speak("Con bấm kiểm tra để hoàn thành cột này trước nhé.");
+      speak("Bạn bấm kiểm tra để hoàn thành cột này trước nhé.");
       return;
     }
 
