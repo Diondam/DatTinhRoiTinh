@@ -916,7 +916,10 @@ checkAnswerBtn.addEventListener("click", () => {
         await animateColumnResultFlow(userAnswer, state.calcCol, landedValue);
 
         if (newCarry > 0) {
-          await speakAsync(`Bây giờ con cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`);
+          const carrySpeech = state.operation === "add"
+            ? `Bây giờ con nhớ ${newCarry} vì tổng lớn hơn chín nhé.`
+            : `Bây giờ con cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`;
+          await speakAsync(carrySpeech);
           await animateCarryFromResultToSide(newCarry, state.calcCol);
           if (landedValue !== boardDigit) {
             await placeResultValue(state.calcCol, boardDigit);

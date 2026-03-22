@@ -1,0 +1,10 @@
+hướng dẫn chạy
+
+- có 3 tập tin là:
+	1. index.html
+	2. styles.css
+	3. app.js
+- hoặc có tên là index, styles, css
+
+- đảm bảo 3 tập tin này đều nằm cùng thư mục
+- ấn vào tập tin index, chọn mở với chrome.
