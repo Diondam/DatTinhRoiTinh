@@ -14,6 +14,7 @@ const slidesSection = document.getElementById("slidesSection");
 const progressFill = document.getElementById("progressFill");
 const horizontalEquation = document.getElementById("horizontalEquation");
 const verticalStack = document.getElementById("verticalStack");
+const stepFlowDisplay = document.getElementById("stepFlowDisplay");
 const rightCarryDisplay = document.getElementById("rightCarryDisplay");
 const warmMathCanvas = document.getElementById("warmMath3d");
 const mathSparkles = document.getElementById("mathSparkles");
@@ -460,6 +461,7 @@ function showFinalStep() {
 
   // Step 5: only show animated horizontal equation with final result.
   clearBoardTimers();
+  clearStepFlowDisplay();
   verticalStack.innerHTML = "";
   const expression = getHorizontalExpression(finalResult);
   horizontalEquation.textContent = "";
@@ -488,6 +490,41 @@ function clearBoardTimers() {
   }
   state.frameTimers.forEach((timerId) => clearTimeout(timerId));
   state.frameTimers = [];
+}
+
+function clearStepFlowDisplay() {
+  if (!stepFlowDisplay) {
+    return;
+  }
+  stepFlowDisplay.textContent = "";
+  stepFlowDisplay.classList.remove("show");
+}
+
+function animateBorrowStepFlow(borrowedValue, subtractValue, carryValue = 1) {
+  if (!stepFlowDisplay) {
+    return;
+  }
+
+  clearStepFlowDisplay();
+  stepFlowDisplay.classList.add("show");
+
+  const normalizedCarry = Math.max(0, Number(carryValue) || 0);
+  const stepOne = `<span class="step-flow-frag">${borrowedValue} - ${subtractValue}</span>`;
+  const stepTwo = `<span class="step-flow-frag"> - ${normalizedCarry}</span>`;
+
+  stepFlowDisplay.innerHTML = stepOne;
+
+  if (normalizedCarry > 0) {
+    const timerId1 = setTimeout(() => {
+      stepFlowDisplay.innerHTML = `${stepOne}${stepTwo}`;
+    }, 620);
+
+    const timerId2 = setTimeout(() => {
+      stepFlowDisplay.textContent = `${borrowedValue} - ${subtractValue} - ${normalizedCarry}`;
+    }, 1280);
+
+    state.frameTimers.push(timerId1, timerId2);
+  }
 }
 
 function getOperationSymbol() {
@@ -624,8 +661,9 @@ function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIc
 
     if (index < normalizedSubtract + normalizedCarry) {
       const strikeDelay = baseDelay + normalizedSubtract * 0.2 + carryIndex * 0.2;
+      const carryStartClass = carryIndex === 0 ? " borrow-extra-start" : "";
       carryIndex += 1;
-      return `<span class="strike-candy borrow-extra-token" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+      return `<span class="strike-candy borrow-extra-token${carryStartClass}" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
     }
 
     return `<span class="candy-item">${itemIcon}</span>`;
@@ -636,16 +674,13 @@ function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIc
   return `
     <div class="candy-frame subtraction-frame borrow-flow-frame">
       <div class="subtraction-row subtraction-row-main">${candyGroup}</div>
-      <div class="subtraction-row subtraction-row-extra borrow-flow-hint">
-        <span class="candy-op">-</span><span class="borrow-flow-label">${normalizedSubtract}</span>
-        <span class="candy-op">-</span><span class="borrow-flow-label borrow-carry-label">${normalizedCarry}</span>
-      </div>
     </div>
   `;
 }
 
 function updateBoardPreview() {
   clearBoardTimers();
+  clearStepFlowDisplay();
   verticalStack.innerHTML = "";
 
   if (!state.hasStarted) {
@@ -973,6 +1008,7 @@ function prepareCalculationPhase() {
   
   let questionText = "";
   let itemIcon = "🍬";
+  let borrowStepFlow = null;
   
   // Đóng khung cột tương ứng (từ phải sang trái)
   const lines = document.querySelectorAll(".calc-line");
@@ -1042,7 +1078,7 @@ function prepareCalculationPhase() {
       if (isOnlyBorrowSubtract) {
         questionText = `Ở ${colName}: vì ${valA} nhỏ hơn 0 sau khi trừ nhớ nên mình phải mượn 1 chục, thành ${borrowedVal}. Cột này không trừ kẹo nào ở dưới, bạn chỉ cần trừ đi 1 cái nhớ còn bao nhiêu thôi nhé.`;
       } else if (state.carry > 0) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Bạn nhìn số kẹo bị gạch để xem sau bước 1 còn bao nhiêu, rồi trừ tiếp 1 cái nhớ nhé.`;
+        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Bạn nhìn số kẹo bị gạch để xem còn bao nhiêu.`;
       } else {
         questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
       }
@@ -1054,6 +1090,11 @@ function prepareCalculationPhase() {
             buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)
           );
         } else {
+          borrowStepFlow = {
+            borrowedValue: borrowedVal,
+            subtractValue: valB,
+            carryValue: state.carry,
+          };
           candyContainer.innerHTML = buildBorrowFlowCandyFrame(
             baseBeforeSubtract,
             valB,
@@ -1064,10 +1105,19 @@ function prepareCalculationPhase() {
           );
         }
       } else {
-        const visibleFinal = Math.max(0, adjustedValA + 10 - valB);
-        candyContainer.innerHTML = buildSubtractionCandyFrame(
-          buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
-          buildStrikeCandyGroupHtml(valB, itemIcon, "main-strike")
+        const baseBeforeSubtract = Math.max(0, borrowedVal);
+        borrowStepFlow = {
+          borrowedValue: borrowedVal,
+          subtractValue: valB,
+          carryValue: 0,
+        };
+        candyContainer.innerHTML = buildBorrowFlowCandyFrame(
+          baseBeforeSubtract,
+          valB,
+          0,
+          itemIcon,
+          3,
+          1.0
         );
       }
     }
@@ -1085,7 +1135,28 @@ function prepareCalculationPhase() {
   applyCandyDensityScale();
   setCoachHint("Nhìn kẹo để đếm theo cột hiện tại, nhập đáp án rồi bấm Kiểm tra.");
   state.step4Prompt = fullQuestionText;
-  speak(fullQuestionText);
+
+  if (borrowStepFlow) {
+    animateBorrowStepFlow(
+      borrowStepFlow.borrowedValue,
+      borrowStepFlow.subtractValue,
+      borrowStepFlow.carryValue
+    );
+  } else {
+    clearStepFlowDisplay();
+  }
+
+  // Hold strike-through visuals until narration finishes so kids can follow instruction first.
+  candyContainer.classList.add("reading-lock");
+  const fallbackReadMs = Math.min(9000, Math.max(2600, String(fullQuestionText).length * 55));
+  const narrationTask = (state.speechSupported && state.speechUnlocked)
+    ? speakAsync(fullQuestionText, fallbackReadMs)
+    : waitMs(fallbackReadMs);
+
+  Promise.all([narrationTask, waitMs(1200)])
+    .finally(() => {
+      candyContainer.classList.remove("reading-lock");
+    });
   
   feedbackText.textContent = "";
   feedbackText.className = "animate__animated";
@@ -1309,6 +1380,7 @@ function paintBoardFromState() {
 
 function showStep3StaticBoard() {
   clearBoardTimers();
+  clearStepFlowDisplay();
   const symbol = getOperationSymbol();
   horizontalEquation.textContent = `${state.a} ${symbol} ${state.b} = ?`;
   paintBoardFromState();
@@ -1316,6 +1388,7 @@ function showStep3StaticBoard() {
 
 function runBoardAnimation() {
   clearBoardTimers();
+  clearStepFlowDisplay();
   const symbol = getOperationSymbol();
   const expression = `${state.a} ${symbol} ${state.b} = ?`;
   horizontalEquation.textContent = "";

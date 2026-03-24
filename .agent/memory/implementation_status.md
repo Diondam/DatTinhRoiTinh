@@ -50,6 +50,14 @@
 - Sửa lỗi đè lời ở Step 2: khi đã nhập đủ 2 số, hệ thống giữ câu nhắc "ấn Tiếp theo" và không phát đè bởi câu ngắn "đã nhập số thứ nhất/thứ hai".
 - Sửa lỗi tràn ngang ("tòi ra") ở Step 4: bỏ ép `nowrap` trong cụm subtraction candy, cho nhóm kẹo wrap lại và chặn overflow-x ở vùng slide.
 - Xóa hoàn toàn mascot con cú khỏi giao diện bằng cách bỏ block owl HTML trong index.html theo yêu cầu hiện tại.
+- Cập nhật Step 4: animation gạch kẹo được khóa trong lúc đọc hướng dẫn và chỉ chạy sau khi narration kết thúc (reading-lock + speakAsync).
+- Bổ sung fallback thời gian đọc cho Step 4 khi TTS không khả dụng/chưa unlock: vẫn giữ khóa animation một khoảng theo độ dài câu trước khi cho gạch chạy.
+- Thêm hiển thị step-flow phép trừ ngay trên bảng (dưới phần đặt tính dọc) cho case mượn có 2 bước: animate lần lượt `14 - 5`, rồi `- 1`, sau đó chốt thành `14 - 5 - 1`.
+- Step-flow chỉ chạy sau khi phần đọc hướng dẫn Step 4 hoàn tất để khớp luồng học.
+- Điều chỉnh timing Step-flow: với case mượn sẽ hiển thị ngay khi bắt đầu đọc hướng dẫn Step 4, không đợi đọc xong mới xuất hiện.
+- Mở rộng Step-flow cho cả lần mượn đầu tiên (carry = 0): hiển thị dạng `x+10 - y` và không còn hiển thị `- 0` ở hàng gợi ý.
+- Tinh chỉnh khung kẹo borrow-flow: thêm khoảng cách trực quan giữa cụm kẹo bị gạch đỏ và cụm kẹo gạch vàng (do nhớ).
+- Bỏ hoàn toàn dòng số mờ gợi ý ở dưới khung borrow-flow để giao diện gọn và tập trung vào kẹo bị gạch.
 
 ## Next Steps
 - Nếu vẫn không phát tiếng trên một máy cụ thể, kiểm tra cài đặt voice tiếng Việt trong hệ điều hành và quyền âm thanh của trình duyệt.

@@ -406,6 +406,39 @@ body::before {
   align-items: center;
 }
 
+.step-flow-display {
+  min-height: 2.1rem;
+  width: 100%;
+  text-align: center;
+  font-family: "Patrick Hand", cursive;
+  font-size: clamp(1.25rem, 2.9vw, 2rem);
+  color: #ffe6a8;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(2, 45, 35, 0.38);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.step-flow-display.show {
+  opacity: 1;
+}
+
+.step-flow-frag {
+  display: inline-block;
+  animation: stepFlowIn 0.3s ease;
+}
+
+@keyframes stepFlowIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .vertical-stack {
   min-height: 240px;
   min-width: 280px;
@@ -853,6 +886,11 @@ body::before {
   animation-delay: var(--strike-delay, 0s);
 }
 
+.candy-container.reading-lock .strike-candy,
+.candy-container.reading-lock .strike-candy::after {
+  animation-play-state: paused !important;
+}
+
 .strike-candy::after {
   content: "";
   position: absolute;
@@ -896,6 +934,10 @@ body::before {
 .strike-candy.borrow-extra-token::after {
   background: rgba(255, 214, 102, 0.96);
   height: 0.11em;
+}
+
+.strike-candy.borrow-extra-start {
+  margin-left: 0.7em;
 }
 
 .candy-group-zero {
