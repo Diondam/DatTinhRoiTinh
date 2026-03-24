@@ -60,6 +60,8 @@ const state = {
   speechUnlocked: false,
   speechSupported: ("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window),
   step2ReadyAnnounced: false,
+  clickAudioCtx: null,
+  lastClickFxTs: 0,
 };
 
 function unlockSpeech() {
@@ -105,6 +107,71 @@ function attachSpeechUnlockListeners() {
   window.addEventListener("pointerdown", unlockOnce, { passive: true });
   window.addEventListener("keydown", unlockOnce);
   window.addEventListener("touchstart", unlockOnce, { passive: true });
+}
+
+function getClickAudioContext() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
+    return null;
+  }
+  if (!state.clickAudioCtx) {
+    state.clickAudioCtx = new AudioCtx();
+  }
+  if (state.clickAudioCtx.state === "suspended") {
+    state.clickAudioCtx.resume();
+  }
+  return state.clickAudioCtx;
+}
+
+function playClickSound() {
+  const ctx = getClickAudioContext();
+  if (!ctx) {
+    return;
+  }
+
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(830, now);
+  osc.frequency.exponentialRampToValueAtTime(510, now + 0.065);
+
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.06, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.085);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.09);
+}
+
+function spawnClickEffect(clientX, clientY) {
+  const fx = document.createElement("span");
+  fx.className = "click-pop";
+  fx.style.left = `${clientX}px`;
+  fx.style.top = `${clientY}px`;
+  document.body.appendChild(fx);
+  fx.addEventListener("animationend", () => fx.remove(), { once: true });
+}
+
+function attachClickFeedback() {
+  window.addEventListener("pointerdown", (event) => {
+    if (typeof event.button === "number" && event.button !== 0) {
+      return;
+    }
+
+    const nowTs = performance.now();
+    if (nowTs - state.lastClickFxTs < 28) {
+      return;
+    }
+    state.lastClickFxTs = nowTs;
+
+    spawnClickEffect(event.clientX, event.clientY);
+    playClickSound();
+  }, { passive: true });
 }
 
 function initMathSparkles() {
@@ -1788,6 +1855,7 @@ if ("speechSynthesis" in window) {
 }
 
 attachSpeechUnlockListeners();
+attachClickFeedback();
 
 resetToStart();
 initMathSparkles();
