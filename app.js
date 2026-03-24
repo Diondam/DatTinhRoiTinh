@@ -24,6 +24,7 @@ const mathQuestionText = document.getElementById("mathQuestionText");
 const candyContainer = document.getElementById("candyContainer");
 const feedbackText = document.getElementById("feedbackText");
 const finalSummaryText = document.getElementById("finalSummaryText");
+const coachHint = document.getElementById("coachHint");
 
 const TOTAL_GUIDE_STEPS = 4;
 
@@ -55,7 +56,55 @@ const state = {
   warmMathAnimId: null,
   warmMathResizeHandler: null,
   warmMathRenderer: null,
+  speechUnlocked: false,
+  speechSupported: ("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window),
+  step2ReadyAnnounced: false,
 };
+
+function unlockSpeech() {
+  if (!state.speechSupported) {
+    return;
+  }
+  const wasUnlocked = state.speechUnlocked;
+  state.speechUnlocked = true;
+  window.speechSynthesis.resume();
+  if (!state.viVoice) {
+    initVoices();
+  }
+
+  // Prime speech engine on first gesture so subsequent utterances are less likely blocked.
+  if (!wasUnlocked) {
+    try {
+      const primer = new SpeechSynthesisUtterance(".");
+      primer.volume = 0;
+      primer.rate = 1;
+      primer.pitch = 1;
+      if (state.viVoice) {
+        primer.voice = state.viVoice;
+        primer.lang = state.viVoice.lang || "vi-VN";
+      } else {
+        primer.lang = String(navigator.language || "vi-VN");
+      }
+      window.speechSynthesis.speak(primer);
+      window.speechSynthesis.cancel();
+    } catch (error) {
+      // Ignore primer errors and continue with normal speech flow.
+    }
+  }
+}
+
+function attachSpeechUnlockListeners() {
+  const unlockOnce = () => {
+    unlockSpeech();
+    window.removeEventListener("pointerdown", unlockOnce);
+    window.removeEventListener("keydown", unlockOnce);
+    window.removeEventListener("touchstart", unlockOnce);
+  };
+
+  window.addEventListener("pointerdown", unlockOnce, { passive: true });
+  window.addEventListener("keydown", unlockOnce);
+  window.addEventListener("touchstart", unlockOnce, { passive: true });
+}
 
 function initMathSparkles() {
   if (!mathSparkles) {
@@ -186,19 +235,23 @@ function isLikelyFemaleVoice(voice) {
 }
 
 function initVoices() {
-  if (!("speechSynthesis" in window)) {
+  if (!state.speechSupported) {
     return;
   }
   const voices = window.speechSynthesis.getVoices();
   const viVoices = voices.filter((voice) => voice.lang && voice.lang.toLowerCase().startsWith("vi"));
-  state.viVoice = viVoices.find((voice) => isLikelyFemaleVoice(voice)) || viVoices[0] || null;
+  const browserLang = String(navigator.language || "").toLowerCase();
+  const browserLangVoice = voices.find((voice) => String(voice.lang || "").toLowerCase().startsWith(browserLang.slice(0, 2)));
+  state.viVoice = viVoices.find((voice) => isLikelyFemaleVoice(voice)) || viVoices[0] || browserLangVoice || voices[0] || null;
 }
 
 function buildUtterance(text) {
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "vi-VN";
+  const defaultLang = String(navigator.language || "vi-VN");
+  utterance.lang = state.viVoice?.lang || defaultLang;
   utterance.rate = 0.9; // Slightly slower for clearer pronunciation
   utterance.pitch = 1.3; // Higher pitch for a clearer feminine/child-friendly voice
+  utterance.volume = 1;
   if (state.viVoice) {
     utterance.voice = state.viVoice;
   }
@@ -206,23 +259,29 @@ function buildUtterance(text) {
 }
 
 function speak(text) {
-  if (!("speechSynthesis" in window)) {
+  if (!state.speechSupported) {
     return;
   }
-  window.speechSynthesis.cancel();
+  if (!state.speechUnlocked) {
+    return;
+  }
+  window.speechSynthesis.resume();
+  if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+    window.speechSynthesis.cancel();
+  }
   const utterance = buildUtterance(text);
   window.speechSynthesis.speak(utterance);
 }
 
 function stopSpeaking() {
-  if (!("speechSynthesis" in window)) {
+  if (!state.speechSupported) {
     return;
   }
   window.speechSynthesis.cancel();
 }
 
 function speakAsync(text, timeoutMs = 3600) {
-  if (!("speechSynthesis" in window)) {
+  if (!state.speechSupported || !state.speechUnlocked) {
     return Promise.resolve();
   }
 
@@ -238,7 +297,10 @@ function speakAsync(text, timeoutMs = 3600) {
       resolve();
     };
 
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      window.speechSynthesis.cancel();
+    }
     const utterance = buildUtterance(text);
     utterance.onend = finish;
     utterance.onerror = finish;
@@ -250,6 +312,37 @@ function speakAsync(text, timeoutMs = 3600) {
 function updateProgress() {
   const visualStep = Math.max(state.slide, 0);
   progressFill.style.width = `${(visualStep / (slides.length - 1)) * 100}%`;
+}
+
+function setCoachHint(text) {
+  if (!coachHint) {
+    return;
+  }
+  coachHint.textContent = text;
+}
+
+function updateCoachHintBySlide(index) {
+  if (index === 0) {
+    setCoachHint("Nhấn Bắt đầu để vào bài học, hoặc Bắt đầu nhanh để chơi ngay.");
+    return;
+  }
+  if (index === 1) {
+    setCoachHint("Hãy chọn phép tính Cộng hoặc Trừ.");
+    return;
+  }
+  if (index === 2) {
+    setCoachHint("Nhập số thứ nhất và số thứ hai vào hai ô.");
+    return;
+  }
+  if (index === 3) {
+    setCoachHint("Quan sát cách đặt tính trên bảng.");
+    return;
+  }
+  if (index === 4) {
+    setCoachHint("Nhìn kẹo để đếm và nhập đáp án, sau đó bấm Kiểm tra.");
+    return;
+  }
+  setCoachHint("Đã hoàn thành bài toán, bạn ấn Tiếp theo để làm bài mới.");
 }
 
 function showSlide(index) {
@@ -301,24 +394,25 @@ function showSlide(index) {
     nextBtn.disabled = false;
   }
   updateProgress();
+  updateCoachHintBySlide(index);
   speakCurrentSlide();
 }
 
 function speakCurrentSlide() {
   if (state.slide === 0) {
-    speak("Chào bạn. Bấm nút bắt đầu để vào bài nhé.");
+    speak("Chào bạn. Bấm nút Bắt đầu để vào bài nhé.");
     return;
   }
   if (state.slide === 1) {
-    speak("Bước một. Bạn hướng chuột vào nút cộng hoặc trừ, rồi ấn để chọn.");
+    speak("Bước một. Bạn hãy chọn nút cộng hoặc trừ.");
     return;
   }
   if (state.slide === 2) {
-    speak("Bước hai. Bạn vào ô thứ nhất có viền xanh để nhập số thứ nhất, rồi vào ô thứ hai có viền vàng để nhập số thứ hai.");
+    speak("Bước hai. Bạn nhập số thứ nhất vào ô viền xanh, số thứ hai vào ô viền vàng.");
     return;
   }
   if (state.slide === 4) {
-    speak(state.step4Prompt || "Bước bốn. Bạn làm phép tính theo từng cột rồi bấm kiểm tra.");
+    speak(state.step4Prompt || "Bước bốn. Bạn nhìn kẹo để đếm theo từng cột, nhập kết quả, rồi bấm Kiểm tra.");
     return;
   }
   if (state.slide === 5) {
@@ -326,7 +420,7 @@ function speakCurrentSlide() {
     return;
   }
   const symbol = getOperationWord();
-  speak(`Bước ba. Nhìn lên bảng. Ta thực hiện phép ${symbol}. ${state.a} ${symbol} ${state.b}.`);
+  speak(`Bước ba. Nhìn lên bảng để theo dõi phép ${symbol}. ${state.a} ${symbol} ${state.b}.`);
 }
 
 function getFinalResult() {
@@ -429,7 +523,29 @@ function buildCandyGroupHtml(count, itemIcon, extraClass = "") {
     return `<span class="${classAttr} candy-group-zero"><span class="candy-zero-gap" aria-label="0"></span></span>`;
   }
 
-  return `<span class="${classAttr}">${itemIcon.repeat(normalizedCount)}</span>`;
+  const itemsHtml = Array.from({ length: normalizedCount }, () => `<span class="candy-item">${itemIcon}</span>`).join("");
+  return `<span class="${classAttr}">${itemsHtml}</span>`;
+}
+
+function applyCandyDensityScale() {
+  if (!candyContainer) {
+    return;
+  }
+
+  candyContainer.classList.remove("candy-size-md", "candy-size-sm", "candy-size-xs");
+
+  const tokenCount = candyContainer.querySelectorAll(".candy-item, .strike-candy").length;
+  if (tokenCount > 30) {
+    candyContainer.classList.add("candy-size-xs");
+    return;
+  }
+  if (tokenCount > 22) {
+    candyContainer.classList.add("candy-size-sm");
+    return;
+  }
+  if (tokenCount > 15) {
+    candyContainer.classList.add("candy-size-md");
+  }
 }
 
 function buildSubtractionCandyGroupHtml(count, itemIcon, extraClass = "", perRow = 3) {
@@ -566,6 +682,7 @@ function setBoardWelcomeVisibility(isVisible) {
 }
 
 function beginLesson() {
+  unlockSpeech();
   state.hasStarted = true;
   setBoardWelcomeVisibility(false);
   updateBoardPreview();
@@ -573,6 +690,7 @@ function beginLesson() {
 }
 
 function beginQuickStart() {
+  unlockSpeech();
   state.hasStarted = true;
   setBoardWelcomeVisibility(false);
   // Tự sinh phép toán Random
@@ -619,9 +737,10 @@ function setOperation(op) {
   });
   updateBoardPreview();
   const labels = {
-    add: "Đã chọn phép cộng",
-    sub: "Đã chọn phép trừ",
+    add: "Đã chọn phép cộng, bạn ấn Tiếp theo để tiếp tục.",
+    sub: "Đã chọn phép trừ, bạn ấn Tiếp theo để tiếp tục.",
   };
+  setCoachHint(labels[op] || "Bạn đã chọn phép tính, bạn ấn Tiếp theo để tiếp tục.");
   speak(labels[op] || "");
 }
 
@@ -957,11 +1076,16 @@ function prepareCalculationPhase() {
     candyContainer.innerHTML = "";
   }
   
+  const step4ActionHint = "Nhìn kẹo để đếm, nhập kết quả vào ô, rồi bấm Kiểm tra.";
+  const fullQuestionText = `${questionText} ${step4ActionHint}`;
+
   if (mathQuestionText) {
-    mathQuestionText.textContent = questionText;
+    mathQuestionText.textContent = fullQuestionText;
   }
-  state.step4Prompt = questionText;
-  speak(questionText);
+  applyCandyDensityScale();
+  setCoachHint("Nhìn kẹo để đếm theo cột hiện tại, nhập đáp án rồi bấm Kiểm tra.");
+  state.step4Prompt = fullQuestionText;
+  speak(fullQuestionText);
   
   feedbackText.textContent = "";
   feedbackText.className = "animate__animated";
@@ -973,6 +1097,7 @@ function prepareCalculationPhase() {
     feedbackText.textContent = "Bạn đã làm đúng cột này rồi. Bấm Tiếp theo nhé!";
     feedbackText.style.color = "var(--ok)";
     nextBtn.disabled = false;
+    setCoachHint("Cột này đã đúng. Bây giờ bấm Tiếp theo để sang cột tiếp theo.");
   } else {
     nextBtn.disabled = true;
   }
@@ -991,6 +1116,7 @@ checkAnswerBtn.addEventListener("click", () => {
   if (!Number.isFinite(userAnswer)) {
     feedbackText.textContent = "Bạn cần nhập kết quả trước nhé!";
     feedbackText.style.color = "var(--brand)";
+    setCoachHint("Bạn chưa nhập đáp án. Hãy nhập số vào ô kết quả rồi bấm Kiểm tra.");
     speak("Bạn cần nhập kết quả trước nhé");
     return;
   }
@@ -1044,6 +1170,10 @@ checkAnswerBtn.addEventListener("click", () => {
       feedbackText.classList.add("animate__tada");
       candyContainer.classList.remove("animate__bounceIn");
       stepAnswer.blur();
+      const completedColHint = state.calcCol < state.maxCols - 1
+        ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
+        : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+      setCoachHint(completedColHint);
       speak("Đúng rồi, giỏi lắm!");
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
       
@@ -1060,11 +1190,19 @@ checkAnswerBtn.addEventListener("click", () => {
           if (landedValue !== boardDigit) {
             await placeResultValue(state.calcCol, boardDigit);
           }
-          await speakAsync("Mình làm tiếp cột sau nhé.", 4000);
+          const nextHintSpeech = state.calcCol < state.maxCols - 1
+            ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
+            : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+          setCoachHint(nextHintSpeech);
+          await speakAsync(nextHintSpeech, 4200);
           return;
         }
 
-        speak("Rất tốt. Bạn ấn tiếp theo nhé.");
+        const nextHintSpeech = state.calcCol < state.maxCols - 1
+          ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
+          : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+        setCoachHint(nextHintSpeech);
+        speak(nextHintSpeech);
       };
 
       completeSuccess()
@@ -1079,6 +1217,7 @@ checkAnswerBtn.addEventListener("click", () => {
       feedbackText.textContent = "Chưa đúng rồi, bạn đếm lại kẹo thử xem nhé! 🤔";
       feedbackText.style.color = "var(--brand)";
       feedbackText.classList.add("animate__headShake");
+      setCoachHint("Chưa đúng. Nhìn lại số kẹo bị gạch và số còn lại, đếm lại rồi bấm Kiểm tra.");
       speak("Chưa đúng rồi, bạn đếm lại nhé");
       checkAnswerBtn.disabled = false;
       state.isCheckingAnswer = false;
@@ -1195,6 +1334,7 @@ function runBoardAnimation() {
         verticalStack.innerHTML = lines
           .map((line, index) => `<div class="calc-line l${index + 1}">${line}</div>`)
           .join("");
+        setCoachHint("Đã xem xong cách đặt tính, bạn ấn Tiếp theo để tiếp tục.");
       }, 200);
       state.frameTimers.push(timerId);
     }
@@ -1204,6 +1344,7 @@ function runBoardAnimation() {
 function validateSlideBeforeNext() {
   if (state.slide === 1) {
     if (!state.operation) {
+      setCoachHint("Bạn chưa chọn phép tính. Hãy bấm Cộng hoặc Trừ trước.");
       speak("Bạn cần chọn phép tính trước đã.");
       return false;
     }
@@ -1214,14 +1355,17 @@ function validateSlideBeforeNext() {
     const a = Number(firstNumberInput.value);
     const b = Number(secondNumberInput.value);
     if (!Number.isFinite(a) || !Number.isFinite(b)) {
+      setCoachHint("Bạn cần nhập đủ 2 số vào cả hai ô.");
       speak("Bạn hãy nhập đủ hai số.");
       return false;
     }
     if (a < 0 || b < 0) {
+      setCoachHint("Hãy nhập số lớn hơn hoặc bằng 0.");
       speak("Bạn hãy nhập số lớn hơn hoặc bằng không.");
       return false;
     }
     if (state.operation === "sub" && a < b) {
+      setCoachHint("Phép trừ này cần số thứ nhất lớn hơn hoặc bằng số thứ hai.");
       speak("Với phép trừ này bạn nhập lại nhé, vì mình chưa học số âm đâu.");
       return false;
     }
@@ -1250,6 +1394,7 @@ function goNext() {
 
   if (state.slide === 4) {
     if (state.columnResults[state.calcCol] === undefined || state.columnResults[state.calcCol] === null) {
+      setCoachHint("Bạn cần bấm Kiểm tra để hoàn thành cột này trước khi sang bước tiếp theo.");
       speak("Bạn bấm kiểm tra để hoàn thành cột này trước nhé.");
       return;
     }
@@ -1364,6 +1509,7 @@ function resetToStart() {
   state.rightCarryTargetCol = -1;
   state.step4Prompt = "";
   state.finalNarrationText = "";
+  state.step2ReadyAnnounced = false;
   firstNumberInput.value = "";
   secondNumberInput.value = "";
   operationButtons.forEach((btn) => btn.classList.remove("is-active"));
@@ -1397,40 +1543,106 @@ function parseInputValue(value) {
 }
 
 operationButtons.forEach((btn) => {
-  btn.addEventListener("click", () => setOperation(btn.dataset.op));
+  btn.addEventListener("click", () => {
+    unlockSpeech();
+    setOperation(btn.dataset.op);
+  });
 });
 
-startBtn.addEventListener("click", beginLesson);
+startBtn.addEventListener("click", () => {
+  unlockSpeech();
+  beginLesson();
+});
 if (boardStartBtn) {
-  boardStartBtn.addEventListener("click", beginLesson);
+  boardStartBtn.addEventListener("click", () => {
+    unlockSpeech();
+    beginLesson();
+  });
 }
 
 const quickStartBtn = document.getElementById("quickStartBtn");
 if (quickStartBtn) {
-  quickStartBtn.addEventListener("click", beginQuickStart);
+  quickStartBtn.addEventListener("click", () => {
+    unlockSpeech();
+    beginQuickStart();
+  });
 }
 
 if (boardQuickStartBtn) {
-  boardQuickStartBtn.addEventListener("click", beginQuickStart);
+  boardQuickStartBtn.addEventListener("click", () => {
+    unlockSpeech();
+    beginQuickStart();
+  });
 }
 
-nextBtn.addEventListener("click", goNext);
-backBtn.addEventListener("click", goBack);
-replayBtn.addEventListener("click", speakCurrentSlide);
+nextBtn.addEventListener("click", () => {
+  unlockSpeech();
+  goNext();
+});
+backBtn.addEventListener("click", () => {
+  unlockSpeech();
+  goBack();
+});
+replayBtn.addEventListener("click", () => {
+  unlockSpeech();
+  speakCurrentSlide();
+});
 
 firstNumberInput.addEventListener("input", () => {
   state.a = parseInputValue(firstNumberInput.value);
   updateBoardPreview();
+  let spokenText = "";
   if (state.slide === 2) {
-    speak("Đã nhập số thứ nhất.");
+    const hasA = firstNumberInput.value !== "";
+    const hasB = secondNumberInput.value !== "";
+    if (hasA && hasB) {
+      const readyText = "Đã nhập đủ 2 số, bạn ấn Tiếp theo để tiếp tục.";
+      setCoachHint(readyText);
+      if (!state.step2ReadyAnnounced) {
+        spokenText = readyText;
+        state.step2ReadyAnnounced = true;
+      }
+    } else {
+      setCoachHint("Đã nhập số thứ nhất. Tiếp theo nhập số thứ hai.");
+      state.step2ReadyAnnounced = false;
+      spokenText = "Đã nhập số thứ nhất.";
+    }
+  }
+  if (state.slide === 2 && spokenText) {
+    speak(spokenText);
   }
 });
 
 secondNumberInput.addEventListener("input", () => {
   state.b = parseInputValue(secondNumberInput.value);
   updateBoardPreview();
+  let spokenText = "";
   if (state.slide === 2) {
-    speak("Đã nhập số thứ hai.");
+    const hasA = firstNumberInput.value !== "";
+    const hasB = secondNumberInput.value !== "";
+    if (hasA && hasB) {
+      const readyText = "Đã nhập đủ 2 số, bạn ấn Tiếp theo để tiếp tục.";
+      setCoachHint(readyText);
+      if (!state.step2ReadyAnnounced) {
+        spokenText = readyText;
+        state.step2ReadyAnnounced = true;
+      }
+    } else {
+      setCoachHint("Đã nhập số thứ hai. Nếu còn thiếu, hãy nhập số thứ nhất.");
+      state.step2ReadyAnnounced = false;
+      spokenText = "Đã nhập số thứ hai.";
+    }
+  }
+  if (state.slide === 2 && spokenText) {
+    speak(spokenText);
+  }
+});
+
+nextBtn.addEventListener("mouseenter", () => {
+  if (state.slide === 3) {
+    setCoachHint("Khi đã quan sát xong, bấm Tiếp theo để qua bước đếm kẹo.");
+  } else if (state.slide === 5) {
+    setCoachHint("Bấm Tiếp theo để bắt đầu bài mới.");
   }
 });
 
@@ -1438,6 +1650,8 @@ if ("speechSynthesis" in window) {
   initVoices();
   window.speechSynthesis.addEventListener("voiceschanged", initVoices);
 }
+
+attachSpeechUnlockListeners();
 
 resetToStart();
 initMathSparkles();
