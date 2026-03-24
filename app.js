@@ -1100,7 +1100,7 @@ function prepareCalculationPhase() {
       if (isOnlyBorrowSubtract) {
         questionText = `Ở ${colName}: cột này không phải trừ kẹo nào ở dưới cả, bạn chỉ cần trừ đi 1 cái nhớ thôi. ${valA} trừ 1 còn bao nhiêu nào?`;
       } else if (state.carry > 0) {
-        questionText = `Ở ${colName}: bạn có ${valA}, bị trừ đi 1 (vì lúc nãy mượn) nên còn ${adjustedValA}. Bây giờ lấy ${adjustedValA} cái kẹo trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
+        questionText = `Ở ${colName}: bạn có ${valA}. Bước 1: trừ ${valB} cái kẹo trước. Bước 2: trừ thêm 1 vì đã mượn từ cột trước, rồi xem còn bao nhiêu nhé.`;
       } else {
         questionText = `Ở ${colName}: bạn có ${valA} cái kẹo, bị trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
       }
@@ -1109,6 +1109,20 @@ function prepareCalculationPhase() {
         candyContainer.innerHTML = buildSubtractionCandyFrame(
           buildSubtractionCandyGroupHtml(visibleFinal, itemIcon),
           buildStrikeCandyGroupHtml(state.carry, itemIcon, "borrow-extra-strike", 0, 1.0)
+        );
+      } else if (state.carry > 0) {
+        borrowStepFlow = {
+          borrowedValue: valA,
+          subtractValue: valB,
+          carryValue: state.carry,
+        };
+        candyContainer.innerHTML = buildBorrowFlowCandyFrame(
+          Math.max(0, valA),
+          valB,
+          state.carry,
+          itemIcon,
+          3,
+          1.0
         );
       } else {
         const visibleFinal = Math.max(0, adjustedValA - valB);
