@@ -1,4 +1,5 @@
 const slides = Array.from(document.querySelectorAll(".slide"));
+const appShell = document.getElementById("appShell");
 const operationButtons = Array.from(document.querySelectorAll("[data-op]"));
 const firstNumberInput = document.getElementById("firstNumber");
 const secondNumberInput = document.getElementById("secondNumber");
@@ -14,6 +15,8 @@ const progressFill = document.getElementById("progressFill");
 const horizontalEquation = document.getElementById("horizontalEquation");
 const verticalStack = document.getElementById("verticalStack");
 const rightCarryDisplay = document.getElementById("rightCarryDisplay");
+const warmMathCanvas = document.getElementById("warmMath3d");
+const mathSparkles = document.getElementById("mathSparkles");
 
 const checkAnswerBtn = document.getElementById("checkAnswerBtn");
 const stepAnswer = document.getElementById("stepAnswer");
@@ -49,7 +52,132 @@ const state = {
   rightCarryTargetCol: -1,
   step4Prompt: "",
   finalNarrationText: "",
+  warmMathAnimId: null,
+  warmMathResizeHandler: null,
+  warmMathRenderer: null,
 };
+
+function initMathSparkles() {
+  if (!mathSparkles) {
+    return;
+  }
+
+  mathSparkles.innerHTML = "";
+  const symbols = ["+", "-", "x", "=", "?", "12", "7", "5", "9", "sqrt", "a+b", "3x", "10"];
+  const sparkleCount = window.innerWidth < 760 ? 14 : 22;
+
+  for (let i = 0; i < sparkleCount; i += 1) {
+    const sparkle = document.createElement("span");
+    sparkle.className = "math-sparkle";
+    sparkle.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    sparkle.style.left = `${Math.random() * 100}%`;
+    sparkle.style.top = `${70 + Math.random() * 45}%`;
+    sparkle.style.setProperty("--delay", `${Math.random() * -16}s`);
+    sparkle.style.setProperty("--dur", `${10 + Math.random() * 10}s`);
+    sparkle.style.setProperty("--size", `${0.8 + Math.random() * 1.2}rem`);
+    mathSparkles.appendChild(sparkle);
+  }
+}
+
+function initWarmMath3d() {
+  if (!warmMathCanvas || !window.THREE) {
+    return;
+  }
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReducedMotion) {
+    return;
+  }
+
+  const THREE = window.THREE;
+  const renderer = new THREE.WebGLRenderer({
+    canvas: warmMathCanvas,
+    alpha: true,
+    antialias: true,
+    powerPreference: "low-power",
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 120);
+  camera.position.z = 26;
+
+  const ringGroup = new THREE.Group();
+  scene.add(ringGroup);
+
+  const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(8.2, 0.34, 20, 90),
+    new THREE.MeshBasicMaterial({
+      color: 0xff9f2a,
+      transparent: true,
+      opacity: 0.42,
+      wireframe: true,
+    })
+  );
+
+  const innerMathBall = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(2.8, 1),
+    new THREE.MeshBasicMaterial({
+      color: 0xffe16f,
+      transparent: true,
+      opacity: 0.2,
+      wireframe: true,
+    })
+  );
+
+  ringGroup.add(torus);
+  ringGroup.add(innerMathBall);
+
+  const pointsCount = 260;
+  const starPositions = new Float32Array(pointsCount * 3);
+  for (let i = 0; i < pointsCount; i += 1) {
+    const idx = i * 3;
+    starPositions[idx] = (Math.random() - 0.5) * 70;
+    starPositions[idx + 1] = (Math.random() - 0.5) * 50;
+    starPositions[idx + 2] = (Math.random() - 0.5) * 30;
+  }
+
+  const starGeometry = new THREE.BufferGeometry();
+  starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+  const stars = new THREE.Points(
+    starGeometry,
+    new THREE.PointsMaterial({
+      color: 0xffd98a,
+      size: 0.34,
+      transparent: true,
+      opacity: 0.36,
+    })
+  );
+  scene.add(stars);
+
+  function handleResize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / Math.max(height, 1);
+    camera.updateProjectionMatrix();
+  }
+
+  function animate() {
+    ringGroup.rotation.x += 0.0018;
+    ringGroup.rotation.y += 0.0022;
+    innerMathBall.rotation.x -= 0.003;
+    innerMathBall.rotation.z += 0.0022;
+    stars.rotation.y += 0.0005;
+    renderer.render(scene, camera);
+    state.warmMathAnimId = window.requestAnimationFrame(animate);
+  }
+
+  handleResize();
+  animate();
+
+  const resizeHandler = () => handleResize();
+  window.addEventListener("resize", resizeHandler);
+
+  state.warmMathResizeHandler = resizeHandler;
+  state.warmMathRenderer = renderer;
+}
 
 function isLikelyFemaleVoice(voice) {
   const identity = `${voice.name || ""} ${voice.voiceURI || ""}`.toLowerCase();
@@ -392,6 +520,10 @@ function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIc
   return `
     <div class="candy-frame subtraction-frame borrow-flow-frame">
       <div class="subtraction-row subtraction-row-main">${candyGroup}</div>
+      <div class="subtraction-row subtraction-row-extra borrow-flow-hint">
+        <span class="candy-op">-</span><span class="borrow-flow-label">${normalizedSubtract}</span>
+        <span class="candy-op">-</span><span class="borrow-flow-label borrow-carry-label">${normalizedCarry}</span>
+      </div>
     </div>
   `;
 }
@@ -426,6 +558,10 @@ function setBoardWelcomeVisibility(isVisible) {
   }
   if (slidesSection) {
     slidesSection.classList.toggle("is-hidden", isVisible);
+  }
+  if (appShell) {
+    appShell.classList.toggle("start-mode", isVisible);
+    appShell.classList.toggle("play-mode", !isVisible);
   }
 }
 
@@ -1304,3 +1440,5 @@ if ("speechSynthesis" in window) {
 }
 
 resetToStart();
+initMathSparkles();
+initWarmMath3d();
