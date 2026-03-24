@@ -932,6 +932,49 @@ function waitMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function enhanceStrikeVisuals() {
+  if (!candyContainer) {
+    return;
+  }
+
+  const subtractionFrame = candyContainer.querySelector(".subtraction-frame");
+  if (!subtractionFrame) {
+    return;
+  }
+
+  const strikeTokens = Array.from(subtractionFrame.querySelectorAll(".strike-candy"));
+  const remainingCandies = Array.from(subtractionFrame.querySelectorAll(".candy-item"));
+
+  if (!strikeTokens.length || !remainingCandies.length) {
+    return;
+  }
+
+  let finishedCount = 0;
+  const triggerRemainingWiggle = () => {
+    remainingCandies.forEach((candy, index) => {
+      candy.classList.remove("after-strike-wiggle");
+      candy.style.setProperty("--wiggle-delay", `${index * 0.05}s`);
+      void candy.offsetWidth;
+      candy.classList.add("after-strike-wiggle");
+    });
+  };
+
+  strikeTokens.forEach((token) => {
+    token.classList.remove("is-struck");
+    token.addEventListener("animationend", (event) => {
+      if (event.animationName !== "strikeCandySettle") {
+        return;
+      }
+      token.classList.add("is-struck");
+      finishedCount += 1;
+      if (finishedCount === strikeTokens.length) {
+        const timerId = setTimeout(triggerRemainingWiggle, 120);
+        state.frameTimers.push(timerId);
+      }
+    }, { once: true });
+  });
+}
+
 async function placeResultValue(colIndex, valueToShow) {
   const resultCell = getCellAt("l4", colIndex);
   if (!resultCell) {
@@ -1132,6 +1175,7 @@ function prepareCalculationPhase() {
   if (mathQuestionText) {
     mathQuestionText.textContent = fullQuestionText;
   }
+  enhanceStrikeVisuals();
   applyCandyDensityScale();
   setCoachHint("Nhìn kẹo để đếm theo cột hiện tại, nhập đáp án rồi bấm Kiểm tra.");
   state.step4Prompt = fullQuestionText;

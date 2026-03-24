@@ -58,6 +58,10 @@
 - Mở rộng Step-flow cho cả lần mượn đầu tiên (carry = 0): hiển thị dạng `x+10 - y` và không còn hiển thị `- 0` ở hàng gợi ý.
 - Tinh chỉnh khung kẹo borrow-flow: thêm khoảng cách trực quan giữa cụm kẹo bị gạch đỏ và cụm kẹo gạch vàng (do nhớ).
 - Bỏ hoàn toàn dòng số mờ gợi ý ở dưới khung borrow-flow để giao diện gọn và tập trung vào kẹo bị gạch.
+- Nâng cấp hiệu ứng gạch: kẹo bị gạch sẽ tối màu ngay sau khi animation gạch của chính kẹo đó kết thúc.
+- Thêm hiệu ứng rung nhẹ có so le cho các kẹo còn lại sau khi toàn bộ kẹo bị gạch đã hoàn tất.
+- Điều chỉnh lại theo phản hồi: bỏ hiệu ứng tối màu, thay bằng xoay tròn 1 vòng cho từng kẹo ngay sau khi bị gạch.
+- Tăng biên độ rung của các kẹo còn lại ở pha cuối để cảm giác rõ ràng và sinh động hơn.
 
 ## Next Steps
 - Nếu vẫn không phát tiếng trên một máy cụ thể, kiểm tra cài đặt voice tiếng Việt trong hệ điều hành và quyền âm thanh của trình duyệt.

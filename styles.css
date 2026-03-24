@@ -886,6 +886,10 @@ body::before {
   animation-delay: var(--strike-delay, 0s);
 }
 
+.strike-candy.is-struck {
+  animation: strikeCandySpin 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .candy-container.reading-lock .strike-candy,
 .candy-container.reading-lock .strike-candy::after {
   animation-play-state: paused !important;
@@ -938,6 +942,11 @@ body::before {
 
 .strike-candy.borrow-extra-start {
   margin-left: 0.7em;
+}
+
+.candy-item.after-strike-wiggle {
+  animation: remainingCandyWiggle 0.7s ease;
+  animation-delay: var(--wiggle-delay, 0s);
 }
 
 .candy-group-zero {
@@ -1197,6 +1206,36 @@ body::before {
   }
   100% {
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes remainingCandyWiggle {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  24% {
+    transform: translateY(-6px) rotate(-5deg) scale(1.04);
+  }
+  46% {
+    transform: translateY(2px) rotate(5deg) scale(0.98);
+  }
+  68% {
+    transform: translateY(-3px) rotate(-3deg) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes strikeCandySpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  65% {
+    transform: rotate(320deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
   }
 }
 
