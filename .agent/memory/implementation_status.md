@@ -62,6 +62,8 @@
 - Thêm hiệu ứng rung nhẹ có so le cho các kẹo còn lại sau khi toàn bộ kẹo bị gạch đã hoàn tất.
 - Điều chỉnh lại theo phản hồi: bỏ hiệu ứng tối màu, thay bằng xoay tròn 1 vòng cho từng kẹo ngay sau khi bị gạch.
 - Tăng biên độ rung của các kẹo còn lại ở pha cuối để cảm giác rõ ràng và sinh động hơn.
+- Sửa trùng lời ở Step 4: khi chuyển slide vào bước này không đọc `speakCurrentSlide` nữa, để chỉ còn một luồng đọc theo cột trong `prepareCalculationPhase`.
+- Sửa trùng ý trong cùng câu Step 4: nếu `questionText` đã có nhắc "nhìn kẹo/đếm", phần hậu tố sẽ chỉ đọc "Nhập kết quả..., bấm Kiểm tra" để tránh lặp.
 
 ## Next Steps
 - Nếu vẫn không phát tiếng trên một máy cụ thể, kiểm tra cài đặt voice tiếng Việt trong hệ điều hành và quyền âm thanh của trình duyệt.

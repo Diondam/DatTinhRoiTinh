@@ -396,7 +396,9 @@ function showSlide(index) {
   }
   updateProgress();
   updateCoachHintBySlide(index);
-  speakCurrentSlide();
+  if (index !== 4) {
+    speakCurrentSlide();
+  }
 }
 
 function speakCurrentSlide() {
@@ -1169,7 +1171,10 @@ function prepareCalculationPhase() {
     candyContainer.innerHTML = "";
   }
   
-  const step4ActionHint = "Nhìn kẹo để đếm, nhập kết quả vào ô, rồi bấm Kiểm tra.";
+  const alreadyHasCountHint = /nhìn\s+(số\s+)?kẹo|đếm/i.test(questionText);
+  const step4ActionHint = alreadyHasCountHint
+    ? "Nhập kết quả vào ô, rồi bấm Kiểm tra."
+    : "Nhìn kẹo để đếm, nhập kết quả vào ô, rồi bấm Kiểm tra.";
   const fullQuestionText = `${questionText} ${step4ActionHint}`;
 
   if (mathQuestionText) {
