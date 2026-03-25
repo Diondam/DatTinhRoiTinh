@@ -1181,7 +1181,12 @@ function prepareCalculationPhase() {
       questionText = `${colName}: Hạ số nhớ ${state.carry} xuống nào!`;
       candyContainer.innerHTML = `<div class="candy-frame">${buildCandyGroupHtml(state.carry, itemIcon, carryCandyClass)}</div>`;
     } else {
-      questionText = `Bây giờ ${colName}, bạn có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa${carryText} thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
+      if (state.carry > 0) {
+        const afterCarry = valA + state.carry;
+        questionText = `Bây giờ ${colName}: ${valA} thêm ${state.carry} bằng ${afterCarry}, rồi ${afterCarry} cộng ${valB} bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
+      } else {
+        questionText = `Bây giờ ${colName}, bạn có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
+      }
       candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon);
     }
   } else if (state.operation === "sub") {
@@ -1355,24 +1360,25 @@ checkAnswerBtn.addEventListener("click", () => {
 
   const valA = getDigitAtCol(state.a, state.calcCol);
   const valB = getDigitAtCol(state.b, state.calcCol);
+  const carryIn = state.carry;
   let expectedAnswer = 0;
   let boardDigit = 0;
   let newCarry = 0;
   
   if (state.operation === "add") {
-    const sum = valA + valB + state.carry;
+    const sum = valA + valB + carryIn;
     expectedAnswer = sum;
     boardDigit = sum % 10;
     newCarry = Math.floor(sum / 10);
   } else if (state.operation === "sub") {
-    const adjustedValA = valA - state.carry;
+    const adjustedValA = valA - carryIn;
     if (adjustedValA >= valB) {
       expectedAnswer = adjustedValA - valB;
       newCarry = 0;
     } else {
       const borrowedVal = valA + 10;
       // Dạy theo flow: mượn thành 12 (hoặc x+10), trừ số dưới trước, rồi trừ 1 đã mượn.
-      expectedAnswer = (borrowedVal - valB) - state.carry;
+      expectedAnswer = (borrowedVal - valB) - carryIn;
       newCarry = 1;
     }
     boardDigit = expectedAnswer;
@@ -1399,7 +1405,7 @@ checkAnswerBtn.addEventListener("click", () => {
       stepAnswer.blur();
       const completedColHint = state.calcCol < state.maxCols - 1
         ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
-        : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+        : "Đã làm xong cột cuối, bạn ấn Tiếp theo để kết thúc.";
       setCoachHint(completedColHint);
       speak("Đúng rồi, giỏi lắm!");
       if (typeof window.confetti === "function") {
@@ -1412,7 +1418,7 @@ checkAnswerBtn.addEventListener("click", () => {
 
         if (newCarry > 0) {
           const carrySpeech = state.operation === "add"
-            ? `Bây giờ bạn nhớ ${newCarry} vì tổng lớn hơn chín nhé.`
+            ? `${valA} cộng ${valB}${carryIn > 0 ? ` cộng ${carryIn}` : ""} bằng ${expectedAnswer}, viết ${boardDigit}, nhớ ${newCarry}.`
             : `Bây giờ bạn cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`;
           await speakAsync(carrySpeech);
           await animateCarryFromResultToSide(newCarry, state.calcCol);
@@ -1421,7 +1427,7 @@ checkAnswerBtn.addEventListener("click", () => {
           }
           const nextHintSpeech = state.calcCol < state.maxCols - 1
             ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
-            : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+            : "Đã làm xong cột cuối, bạn ấn Tiếp theo để kết thúc.";
           setCoachHint(nextHintSpeech);
           await speakAsync(nextHintSpeech, 4200);
           return;
@@ -1429,7 +1435,7 @@ checkAnswerBtn.addEventListener("click", () => {
 
         const nextHintSpeech = state.calcCol < state.maxCols - 1
           ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
-          : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
+          : "Đã làm xong cột cuối, bạn ấn Tiếp theo để kết thúc.";
         setCoachHint(nextHintSpeech);
         speak(nextHintSpeech);
       };

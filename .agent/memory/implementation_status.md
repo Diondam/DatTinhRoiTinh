@@ -1,12 +1,15 @@
 # Implementation Status
 
 ## Last Updated
-2026-03-24
+2026-03-25
 
 ## Current Focus
-- Khôi phục độ ổn định giọng đọc (TTS) để phát được trên nhiều trình duyệt/máy hơn.
+- Đồng bộ logic dạy phép cộng kiểu "viết số, nhớ 1" với lời thoại hướng dẫn ở bước tính theo cột.
 
 ## Recent Changes
+- Sửa bug giọng đọc cộng có nhớ trong app.js: câu đọc sau khi đúng đáp án dùng `carryIn` của cột hiện tại thay vì `state.carry` đã bị cập nhật sang số nhớ mới, tránh lỗi đọc kiểu "6 cộng 7 cộng 1" ở cột đơn vị.
+- Cập nhật Step 4 nhánh cộng trong app.js: khi có số nhớ, prompt đọc theo đúng trình tự sách giáo khoa (ví dụ: "3 thêm 1 bằng 4, rồi 4 cộng 1").
+- Cập nhật lời thoại sau khi trả lời đúng ở cột cộng có nhớ: đọc rõ "... bằng ..., viết ..., nhớ ..." để khớp thao tác đặt tính.
 - Chèn lớp nền động mới trong index.html gồm canvas 3D và vùng sparkles ký hiệu toán.
 - Thêm thư viện three.js CDN để dựng hiệu ứng nền 3D nhẹ.
 - Đổi bảng màu toàn bộ styles.css sang tông nóng (cam/đỏ/vàng), giảm cảm giác trắng nhạt.
@@ -68,6 +71,7 @@
 - Thêm click feedback toàn màn hình: mỗi lần bấm tạo vòng sáng tại vị trí click và phát âm click ngắn bằng WebAudio (không cần file âm thanh ngoài).
 
 ## Next Steps
+- Test nhanh case cộng có nhớ điển hình (ví dụ 36 + 17) để xác nhận câu đọc và câu hỏi Step 4 đều khớp 100%.
 - Nếu vẫn không phát tiếng trên một máy cụ thể, kiểm tra cài đặt voice tiếng Việt trong hệ điều hành và quyền âm thanh của trình duyệt.
 - Nếu máy vẫn im lặng, ưu tiên kiểm tra danh sách TTS voices của hệ thống Windows (Vietnamese language pack) và thử Edge/Chrome profile khác để loại trừ extension chặn speech.
 
@@ -77,6 +81,8 @@
 - Có media query prefers-reduced-motion để tắt animation không cần thiết.
 
 ## Challenges & Errors Encountered
+- Có lỗi logic state timing ở Step 4: `state.carry` bị gán `newCarry` trước khi dựng câu `carrySpeech`, làm lời đọc thêm sai "cộng 1" ở cột hiện tại; đã khắc phục bằng biến snapshot `carryIn` lấy trước khi tính và dùng xuyên suốt phép tính/câu đọc của cột đó.
+- Không phát sinh lỗi cú pháp sau chỉnh sửa mới trong app.js cho logic cộng có nhớ và lời thoại.
 - Không phát sinh lỗi cú pháp sau chỉnh sửa index.html, styles.css, app.js.
 - Cân bằng giữa hiệu ứng lung linh và hiệu năng: đã dùng cấu hình three.js nhẹ, giới hạn pixel ratio và số point vừa phải.
 - Khi ép equal-height cần xử lý overflow, nếu không input và nút ở panel trái có thể bị đẩy tràn; đã khắc phục bằng flex + overflow auto trong play-mode.
