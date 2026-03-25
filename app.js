@@ -1196,11 +1196,11 @@ function prepareCalculationPhase() {
     if (adjustedValA >= valB) {
       const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
       if (isOnlyBorrowSubtract) {
-        questionText = `Ở ${colName}: cột này không phải trừ kẹo nào ở dưới cả, bạn chỉ cần trừ đi 1 cái nhớ thôi. ${valA} trừ 1 còn bao nhiêu nào?`;
+        questionText = `Ở ${colName}: cột này không có số để trừ bên dưới, chỉ trừ số nhớ thôi. ${valA} trừ ${state.carry} bằng bao nhiêu nào?`;
       } else if (state.carry > 0) {
-        questionText = `Ở ${colName}: bạn có ${valA}. Bước 1: trừ ${valB} cái kẹo trước. Bước 2: trừ thêm 1 vì đã mượn từ cột trước, rồi xem còn bao nhiêu nhé.`;
+        questionText = `Ở ${colName}: ${valA} trừ ${state.carry} bằng ${adjustedValA}, rồi ${adjustedValA} trừ ${valB} bằng bao nhiêu nào?`;
       } else {
-        questionText = `Ở ${colName}: bạn có ${valA} cái kẹo, bị trừ đi ${valB} cái kẹo thì còn lại bao nhiêu cái nào?`;
+        questionText = `Ở ${colName}: ${valA} trừ ${valB} bằng bao nhiêu nào?`;
       }
       if (isOnlyBorrowSubtract) {
         const visibleFinal = Math.max(0, valA - state.carry);
@@ -1233,11 +1233,11 @@ function prepareCalculationPhase() {
       const borrowedVal = valA + 10;
       const isOnlyBorrowSubtract = state.carry > 0 && valB === 0;
       if (isOnlyBorrowSubtract) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn 0 sau khi trừ nhớ nên mình phải mượn 1 chục, thành ${borrowedVal}. Cột này không trừ kẹo nào ở dưới, bạn chỉ cần trừ đi 1 cái nhớ còn bao nhiêu thôi nhé.`;
+        questionText = `Ở ${colName}: sau khi trừ nhớ thì ${valA} không đủ, mình mượn 1 chục thành ${borrowedVal}. Bây giờ ${borrowedVal} trừ ${state.carry} bằng bao nhiêu nào?`;
       } else if (state.carry > 0) {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bước 1: ${borrowedVal} trừ ${valB}. Bước 2: ngoài ra còn phải trừ thêm 1 do đã mượn từ cột trước. Bạn nhìn số kẹo bị gạch để xem còn bao nhiêu.`;
+        questionText = `Ở ${colName}: ${valA} không trừ được ${valB} nên mượn 1 chục thành ${borrowedVal}. ${borrowedVal} trừ ${valB} bằng ${borrowedVal - valB}, rồi trừ ${state.carry} bằng bao nhiêu nào?`;
       } else {
-        questionText = `Ở ${colName}: vì ${valA} nhỏ hơn ${valB} nên mình phải mượn 1 chục, thành ${borrowedVal}. Bây giờ lấy ${borrowedVal} cái kẹo trừ đi ${valB} cái kẹo thì còn bao nhiêu nè?`;
+        questionText = `Ở ${colName}: ${valA} không trừ được ${valB}, lấy ${borrowedVal} trừ ${valB} bằng bao nhiêu nào?`;
       }
       if (state.carry > 0) {
         const baseBeforeSubtract = Math.max(0, borrowedVal);
@@ -1419,7 +1419,9 @@ checkAnswerBtn.addEventListener("click", () => {
         if (newCarry > 0) {
           const carrySpeech = state.operation === "add"
             ? `${valA} cộng ${valB}${carryIn > 0 ? ` cộng ${carryIn}` : ""} bằng ${expectedAnswer}, viết ${boardDigit}, nhớ ${newCarry}.`
-            : `Bây giờ bạn cho nhớ ${newCarry} đơn vị đã mượn lúc đầu do bé hơn ra.`;
+            : carryIn > 0
+              ? `${valA} không trừ được ${valB}, lấy ${valA + 10} trừ ${valB} bằng ${valA + 10 - valB}, rồi trừ ${carryIn} bằng ${expectedAnswer}, viết ${boardDigit}, nhớ ${newCarry}.`
+              : `${valA} không trừ được ${valB}, lấy ${valA + 10} trừ ${valB} bằng ${expectedAnswer}, viết ${boardDigit}, nhớ ${newCarry}.`;
           await speakAsync(carrySpeech);
           await animateCarryFromResultToSide(newCarry, state.calcCol);
           if (landedValue !== boardDigit) {
@@ -1431,6 +1433,12 @@ checkAnswerBtn.addEventListener("click", () => {
           setCoachHint(nextHintSpeech);
           await speakAsync(nextHintSpeech, 4200);
           return;
+        }
+
+        if (state.operation === "sub" && carryIn > 0) {
+          const afterCarrySubtract = valA - carryIn;
+          const settleSpeech = `${valA} trừ ${carryIn} bằng ${afterCarrySubtract}, ${afterCarrySubtract} trừ ${valB} bằng ${boardDigit}, viết ${boardDigit}.`;
+          await speakAsync(settleSpeech);
         }
 
         const nextHintSpeech = state.calcCol < state.maxCols - 1
