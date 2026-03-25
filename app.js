@@ -153,6 +153,26 @@ function spawnClickEffect(clientX, clientY) {
   fx.className = "click-pop";
   fx.style.left = `${clientX}px`;
   fx.style.top = `${clientY}px`;
+
+  const particleCount = window.innerWidth < 760 ? 10 : 14;
+  for (let i = 0; i < particleCount; i += 1) {
+    const particle = document.createElement("span");
+    particle.className = "click-pop-particle";
+
+    const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.35;
+    const distance = 22 + Math.random() * 34;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+
+    particle.style.setProperty("--dx", `${dx}px`);
+    particle.style.setProperty("--dy", `${dy}px`);
+    particle.style.setProperty("--size", `${2.6 + Math.random() * 3.4}px`);
+    particle.style.setProperty("--delay", `${Math.random() * 35}ms`);
+    particle.style.setProperty("--dur", `${300 + Math.random() * 180}ms`);
+
+    fx.appendChild(particle);
+  }
+
   document.body.appendChild(fx);
   fx.addEventListener("animationend", () => fx.remove(), { once: true });
 }
@@ -163,7 +183,9 @@ function attachClickFeedback() {
       return;
     }
 
-    const nowTs = performance.now();
+    const nowTs = (window.performance && typeof window.performance.now === "function")
+      ? window.performance.now()
+      : Date.now();
     if (nowTs - state.lastClickFxTs < 28) {
       return;
     }
@@ -316,7 +338,7 @@ function initVoices() {
 function buildUtterance(text) {
   const utterance = new SpeechSynthesisUtterance(text);
   const defaultLang = String(navigator.language || "vi-VN");
-  utterance.lang = state.viVoice?.lang || defaultLang;
+  utterance.lang = (state.viVoice && state.viVoice.lang) ? state.viVoice.lang : defaultLang;
   utterance.rate = 0.9; // Slightly slower for clearer pronunciation
   utterance.pitch = 1.3; // Higher pitch for a clearer feminine/child-friendly voice
   utterance.volume = 1;
@@ -504,11 +526,15 @@ function getFinalResult() {
 }
 
 function launchFireworks() {
+  if (typeof window.confetti !== "function") {
+    return;
+  }
+
   const bursts = [0, 250, 500, 800, 1100];
   bursts.forEach((delay, index) => {
     const timerId = setTimeout(() => {
       const originX = 0.2 + (index % 3) * 0.3;
-      confetti({
+      window.confetti({
         particleCount: 140,
         spread: 90,
         startVelocity: 42,
@@ -1376,7 +1402,9 @@ checkAnswerBtn.addEventListener("click", () => {
         : "Đã làm xong cột cuối, bạn ấn Tiếp theo để xem kết quả.";
       setCoachHint(completedColHint);
       speak("Đúng rồi, giỏi lắm!");
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      if (typeof window.confetti === "function") {
+        window.confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+      }
       
       const completeSuccess = async () => {
         const landedValue = newCarry > 0 ? expectedAnswer : boardDigit;
