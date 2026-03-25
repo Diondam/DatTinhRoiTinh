@@ -709,15 +709,16 @@ function buildStrikeCandyGroupHtml(count, itemIcon, extraClass = "", delayStart 
 }
 
 function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon) {
-  const parts = [
-    buildCandyGroupHtml(valA, itemIcon),
-    '<span class="candy-op">➕</span>',
-    buildCandyGroupHtml(valB, itemIcon),
-  ];
+  const parts = [buildCandyGroupHtml(valA, itemIcon)];
+
+  const appendTerm = (count, extraClass = "") => {
+    parts.push(`<span class="candy-term"><span class="candy-op">➕</span>${buildCandyGroupHtml(count, itemIcon, extraClass)}</span>`);
+  };
+
+  appendTerm(valB);
 
   if (carryCount > 0) {
-    parts.push('<span class="candy-op">➕</span>');
-    parts.push(buildCandyGroupHtml(carryCount, itemIcon, carryCandyClass));
+    appendTerm(carryCount, carryCandyClass);
   }
 
   return `<div class="candy-frame">${parts.join("")}</div>`;
@@ -881,8 +882,8 @@ function getDigitArray(numStr, maxLen) {
 }
 
 function getColumnName(colIndex) {
-  const names = ["hàng đơn vị", "hàng chục", "hàng trăm", "hàng nghìn", "hàng chục nghìn"];
-  return names[colIndex] || "hàng tiếp theo";
+  const names = ["số đơn vị", "số chục", "số trăm", "số nghìn", "số chục nghìn"];
+  return names[colIndex] || "số tiếp theo";
 }
 
 function getDigitAtCol(numStr, colIndex) {
@@ -1394,6 +1395,12 @@ checkAnswerBtn.addEventListener("click", () => {
   void feedbackText.offsetWidth; // reset anim
 
   if(userAnswer === expectedAnswer) {
+      const nextCol = state.calcCol + 1;
+      const hasNoMoreDigitsAhead = nextCol >= String(state.a).length && nextCol >= String(state.b).length;
+      const shouldAutoFinalizeCarryOnly = state.operation === "add" && newCarry > 0 && hasNoMoreDigitsAhead;
+      const isLastCalcCol = state.calcCol === state.maxCols - 1;
+      const shouldAutoFinishAddition = state.operation === "add" && (shouldAutoFinalizeCarryOnly || (isLastCalcCol && newCarry === 0));
+
       state.carry = newCarry; // Cập nhật số nhớ cho bước tiếp theo
       state.columnResults[state.calcCol] = userAnswer;
       state.carryOutByCol[state.calcCol] = newCarry;
@@ -1403,7 +1410,9 @@ checkAnswerBtn.addEventListener("click", () => {
       feedbackText.classList.add("animate__tada");
       candyContainer.classList.remove("animate__bounceIn");
       stepAnswer.blur();
-      const completedColHint = state.calcCol < state.maxCols - 1
+      const completedColHint = shouldAutoFinishAddition
+        ? "Đây là cột cuối, hệ thống chốt kết quả luôn nhé."
+        : state.calcCol < state.maxCols - 1
         ? "Đã làm xong cột này, bạn ấn Tiếp theo để tiếp tục."
         : "Đã làm xong cột cuối, bạn ấn Tiếp theo để kết thúc.";
       setCoachHint(completedColHint);
@@ -1415,6 +1424,43 @@ checkAnswerBtn.addEventListener("click", () => {
       const completeSuccess = async () => {
         const landedValue = newCarry > 0 ? expectedAnswer : boardDigit;
         await animateColumnResultFlow(userAnswer, state.calcCol, landedValue);
+
+        if (shouldAutoFinalizeCarryOnly) {
+          const settleSpeech = carryIn > 0
+            ? `${valA} cộng ${carryIn} bằng ${valA + carryIn}, ${valA + carryIn} cộng ${valB} bằng ${expectedAnswer}. Đây là cột cuối nên mình chốt kết quả luôn.`
+            : `${valA} cộng ${valB} bằng ${expectedAnswer}. Đây là cột cuối nên mình chốt kết quả luôn.`;
+          await speakAsync(settleSpeech);
+          if (landedValue !== boardDigit) {
+            await placeResultValue(state.calcCol, boardDigit);
+          }
+
+          // Show the final carry digit on the board first so kids see the full result before Step 5.
+          await placeResultValue(nextCol, newCarry);
+
+          state.calcCol = nextCol;
+          state.columnResults[nextCol] = newCarry;
+          state.carryInByCol[nextCol] = newCarry;
+          state.carryOutByCol[nextCol] = 0;
+          state.pendingCarryAnimCol = -1;
+          state.rightCarryValue = 0;
+          state.rightCarryTargetCol = -1;
+          hideRightCarryDisplay();
+          await waitMs(320);
+          showFinalStep();
+          showSlide(5);
+          return;
+        }
+
+        if (state.operation === "add" && shouldAutoFinishAddition) {
+          const settleSpeech = carryIn > 0
+            ? `${valA} cộng ${carryIn} bằng ${valA + carryIn}, ${valA + carryIn} cộng ${valB} bằng ${expectedAnswer}. Đây là cột cuối nên mình chốt kết quả luôn.`
+            : `${valA} cộng ${valB} bằng ${expectedAnswer}. Đây là cột cuối nên mình chốt kết quả luôn.`;
+          await speakAsync(settleSpeech);
+          await waitMs(220);
+          showFinalStep();
+          showSlide(5);
+          return;
+        }
 
         if (newCarry > 0) {
           const carrySpeech = state.operation === "add"
@@ -1646,6 +1692,24 @@ function goNext() {
 
     if (state.calcCol < state.maxCols - 1) {
       const outgoingCarry = state.carryOutByCol[state.calcCol] || 0;
+      const nextCol = state.calcCol + 1;
+      const hasNoMoreDigitsAhead = nextCol >= String(state.a).length && nextCol >= String(state.b).length;
+      const shouldAutoFinalizeCarryOnly = state.operation === "add" && outgoingCarry > 0 && hasNoMoreDigitsAhead;
+
+      if (shouldAutoFinalizeCarryOnly) {
+        state.calcCol = nextCol;
+        state.columnResults[nextCol] = outgoingCarry;
+        state.carryInByCol[nextCol] = outgoingCarry;
+        state.carryOutByCol[nextCol] = 0;
+        state.pendingCarryAnimCol = -1;
+        state.rightCarryValue = 0;
+        state.rightCarryTargetCol = -1;
+        hideRightCarryDisplay();
+        showFinalStep();
+        showSlide(5);
+        return;
+      }
+
       state.calcCol += 1;
       state.pendingCarryAnimCol = outgoingCarry > 0 ? state.calcCol : -1;
       prepareCalculationPhase();
@@ -1709,13 +1773,33 @@ function goBack() {
     return;
   }
 
+  const getStep4ReturnCol = () => {
+    let targetCol = Math.max(0, state.maxCols - 1);
+    if (state.operation !== "add") {
+      return targetCol;
+    }
+
+    const aLen = String(state.a).length;
+    const bLen = String(state.b).length;
+    const isCarryOnlyCol = targetCol >= aLen && targetCol >= bLen;
+    const carryIn = Number(state.carryInByCol[targetCol] || 0);
+    const resultAtCol = Number(state.columnResults[targetCol]);
+
+    if (isCarryOnlyCol && carryIn > 0 && Number.isFinite(resultAtCol) && resultAtCol === carryIn) {
+      targetCol = Math.max(0, targetCol - 1);
+    }
+
+    return targetCol;
+  };
+
   if (state.slide === 0) {
     return;
   }
 
   if (state.slide === 5) {
-    state.calcCol = Math.max(0, state.maxCols - 1);
+    state.calcCol = getStep4ReturnCol();
     showSlide(4);
+    paintBoardFromState();
     prepareCalculationPhase();
     return;
   }

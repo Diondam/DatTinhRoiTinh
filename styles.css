@@ -901,6 +901,13 @@ body::before {
   max-width: min(100%, 22em);
 }
 
+.candy-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
 .candy-container.candy-size-sm .candy-group,
 .candy-container.candy-size-xs .candy-group {
   gap: 0.12rem;
@@ -996,7 +1003,7 @@ body::before {
 
 .candy-op {
   color: #d9d0f5;
-  font-size: 1.3em;
+  font-size: 1.02em;
   line-height: 1;
 }
 

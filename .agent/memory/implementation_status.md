@@ -7,6 +7,15 @@
 - Đồng bộ logic dạy phép cộng kiểu "viết số, nhớ 1" với lời thoại hướng dẫn ở bước tính theo cột.
 
 ## Recent Changes
+- Hoàn tất auto-end cho phép cộng: khi giải đúng cột cuối mà không còn cột cần tính (kể cả không phát sinh carry mới), hệ thống chuyển thẳng Step 5 thay vì nhắc "ấn Tiếp theo để kết thúc".
+- Sửa timing chuyển Step 5 ở nhánh auto-finalize cộng: Step 4 giờ hiển thị đủ kết quả trên bảng (bao gồm digit nhớ cuối) rồi mới chuyển sang Step 5.
+- Sửa lỗi Quay lại từ Step 5 bị mất phép tính trên bảng: thêm `paintBoardFromState()` trước `prepareCalculationPhase()` để dựng lại phép tính dọc.
+- Sửa điều hướng quay lại từ Step 5: nếu cột cuối là cột carry-only phát sinh (không có chữ số thật của 2 số), nút Quay lại sẽ về cột trước đó ở Step 4 thay vì hiện "tính số trăm".
+- Sửa UX cộng có nhớ ở cột cuối: ngay sau khi bấm Kiểm tra đúng, nếu chỉ còn carry ở cột ngoài cùng thì app tự chốt kết quả và chuyển thẳng Step 5, không đọc "viết ..., nhớ 1" rồi yêu cầu bấm Tiếp theo.
+- Tối ưu Step 4 phép cộng: nếu đã hết chữ số bên trái của cả hai số nhưng còn carry-out (ví dụ 56 + 78), hệ thống tự chốt digit nhớ vào kết quả và chuyển thẳng Step 5, không tạo thêm cột hỏi carry riêng.
+- Giảm kích thước dấu toán trong vùng kẹo (`.candy-op`) để tránh dấu `+/-` quá to so với cụm kẹo.
+- Sửa layout dấu phép cộng trong khung kẹo: nhóm `dấu + cụm kẹo sau dấu` thành một khối không tách dòng (`candy-term`) để tránh tình trạng dấu đứng lẻ ở cuối dòng khi wrap.
+- Chuẩn hóa thuật ngữ ở Step 4: đổi nhãn cột từ "hàng đơn vị/chục/trăm" sang "số đơn vị/chục/trăm" trong app.js để khớp yêu cầu giao diện.
 - Cập nhật phép trừ trong app.js theo mẫu sách giáo khoa: prompt Step 4 và lời đọc sau khi đúng đáp án đã dùng cấu trúc "không trừ được thì mượn", "viết..., nhớ 1", và "trừ số nhớ trước rồi trừ tiếp".
 - Sửa bug giọng đọc cộng có nhớ trong app.js: câu đọc sau khi đúng đáp án dùng `carryIn` của cột hiện tại thay vì `state.carry` đã bị cập nhật sang số nhớ mới, tránh lỗi đọc kiểu "6 cộng 7 cộng 1" ở cột đơn vị.
 - Cập nhật Step 4 nhánh cộng trong app.js: khi có số nhớ, prompt đọc theo đúng trình tự sách giáo khoa (ví dụ: "3 thêm 1 bằng 4, rồi 4 cộng 1").
@@ -82,6 +91,8 @@
 - Có media query prefers-reduced-motion để tắt animation không cần thiết.
 
 ## Challenges & Errors Encountered
+- Trước khi sửa, nhánh cộng có nhớ ở cột cuối vẫn phát lời "viết 3, nhớ 1" và nhắc bấm Tiếp theo vì logic auto-finalize nằm ở `goNext`; đã dời logic chốt sớm vào ngay sau `checkAnswer` thành công.
+- Trải nghiệm học cộng có carry ở cột cao nhất trước đó bị dư 1 bước (hỏi thêm cột chỉ có số nhớ); đã xử lý bằng nhánh auto-finalize dựa trên điều kiện "không còn chữ số phía trước ở cả 2 toán hạng".
 - Có độ lệch giữa lời dẫn phép trừ và mẫu sách (trước đó dùng câu mô tả chung); đã chuẩn hóa lại thành công thức đọc từng bước theo cột để khớp cách dạy "lấy 12 trừ 5..." và "4 trừ 1, 3 trừ 1...".
 - Có lỗi logic state timing ở Step 4: `state.carry` bị gán `newCarry` trước khi dựng câu `carrySpeech`, làm lời đọc thêm sai "cộng 1" ở cột hiện tại; đã khắc phục bằng biến snapshot `carryIn` lấy trước khi tính và dùng xuyên suốt phép tính/câu đọc của cột đó.
 - Không phát sinh lỗi cú pháp sau chỉnh sửa mới trong app.js cho logic cộng có nhớ và lời thoại.
