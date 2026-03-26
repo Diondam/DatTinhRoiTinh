@@ -595,7 +595,7 @@ function clearStepFlowDisplay() {
   stepFlowDisplay.classList.remove("show");
 }
 
-function animateBorrowStepFlow(borrowedValue, subtractValue, carryValue = 1) {
+function animateBorrowStepFlow(borrowedValue, subtractValue, carryValue = 1, carryFirst = false) {
   if (!stepFlowDisplay) {
     return;
   }
@@ -603,23 +603,61 @@ function animateBorrowStepFlow(borrowedValue, subtractValue, carryValue = 1) {
   clearStepFlowDisplay();
   stepFlowDisplay.classList.add("show");
 
+  const normalizedSubtract = Math.max(0, Number(subtractValue) || 0);
   const normalizedCarry = Math.max(0, Number(carryValue) || 0);
-  const stepOne = `<span class="step-flow-frag">${borrowedValue} - ${subtractValue}</span>`;
-  const stepTwo = `<span class="step-flow-frag"> - ${normalizedCarry}</span>`;
+  const shouldShowCarryFirst = carryFirst && normalizedCarry > 0;
+
+  const firstStepValue = shouldShowCarryFirst ? normalizedCarry : normalizedSubtract;
+  const secondStepValue = shouldShowCarryFirst ? normalizedSubtract : normalizedCarry;
+  const stepOne = `<span class="step-flow-frag">${borrowedValue} - ${firstStepValue}</span>`;
+  const stepTwo = `<span class="step-flow-frag"> - ${secondStepValue}</span>`;
 
   stepFlowDisplay.innerHTML = stepOne;
 
-  if (normalizedCarry > 0) {
+  if (secondStepValue > 0) {
     const timerId1 = setTimeout(() => {
       stepFlowDisplay.innerHTML = `${stepOne}${stepTwo}`;
     }, 620);
 
     const timerId2 = setTimeout(() => {
-      stepFlowDisplay.textContent = `${borrowedValue} - ${subtractValue} - ${normalizedCarry}`;
+      stepFlowDisplay.textContent = `${borrowedValue} - ${firstStepValue} - ${secondStepValue}`;
     }, 1280);
 
     state.frameTimers.push(timerId1, timerId2);
+    return;
   }
+
+  stepFlowDisplay.textContent = `${borrowedValue} - ${firstStepValue}`;
+}
+
+function animateAdditionStepFlow(firstValue, carryValue, addValue) {
+  if (!stepFlowDisplay) {
+    return;
+  }
+
+  const normalizedCarry = Math.max(0, Number(carryValue) || 0);
+  if (normalizedCarry <= 0) {
+    clearStepFlowDisplay();
+    return;
+  }
+
+  clearStepFlowDisplay();
+  stepFlowDisplay.classList.add("show");
+
+  const stepOne = `<span class="step-flow-frag">${firstValue} + ${normalizedCarry}</span>`;
+  const stepTwo = `<span class="step-flow-frag"> + ${addValue}</span>`;
+
+  stepFlowDisplay.innerHTML = stepOne;
+
+  const timerId1 = setTimeout(() => {
+    stepFlowDisplay.innerHTML = `${stepOne}${stepTwo}`;
+  }, 620);
+
+  const timerId2 = setTimeout(() => {
+    stepFlowDisplay.textContent = `${firstValue} + ${normalizedCarry} + ${addValue}`;
+  }, 1280);
+
+  state.frameTimers.push(timerId1, timerId2);
 }
 
 function getOperationSymbol() {
@@ -708,16 +746,20 @@ function buildStrikeCandyGroupHtml(count, itemIcon, extraClass = "", delayStart 
   return `<span class="${classAttr}" style="--candy-cols: 3;">${itemsHtml}</span>`;
 }
 
-function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon) {
+function buildAdditionCandyFrame(valA, valB, carryCount, carryCandyClass, itemIcon, carryFirst = false) {
   const parts = [buildCandyGroupHtml(valA, itemIcon)];
 
   const appendTerm = (count, extraClass = "") => {
     parts.push(`<span class="candy-term"><span class="candy-op">➕</span>${buildCandyGroupHtml(count, itemIcon, extraClass)}</span>`);
   };
 
+  if (carryFirst && carryCount > 0) {
+    appendTerm(carryCount, carryCandyClass);
+  }
+
   appendTerm(valB);
 
-  if (carryCount > 0) {
+  if (!carryFirst && carryCount > 0) {
     appendTerm(carryCount, carryCandyClass);
   }
 
@@ -741,25 +783,38 @@ function buildSubtractionCandyFrame(mainResultHtml, mainSubtractHtml, extraSubtr
   `;
 }
 
-function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIcon, perRow = 3, baseDelay = 1.0) {
+function buildBorrowFlowCandyFrame(totalCount, subtractCount, carryCount, itemIcon, perRow = 3, baseDelay = 1.0, carryFirst = false) {
   const normalizedTotal = Math.max(0, Number(totalCount) || 0);
   const normalizedSubtract = Math.max(0, Math.min(Number(subtractCount) || 0, normalizedTotal));
   const normalizedCarry = Math.max(0, Math.min(Number(carryCount) || 0, normalizedTotal - normalizedSubtract));
 
-  let subtractIndex = 0;
-  let carryIndex = 0;
-  const itemsHtml = Array.from({ length: normalizedTotal }, (_, index) => {
-    if (index < normalizedSubtract) {
-      const strikeDelay = baseDelay + subtractIndex * 0.2;
-      subtractIndex += 1;
-      return `<span class="strike-candy main-strike-token" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+  const strikeSequence = [];
+  const appendMainStrike = (count, withLeadGap = false) => {
+    for (let i = 0; i < count; i += 1) {
+      const leadGapClass = withLeadGap && i === 0 ? " main-strike-start" : "";
+      strikeSequence.push(`main-strike-token${leadGapClass}`);
     }
+  };
+  const appendCarryStrike = (count, withLeadGap = false) => {
+    for (let i = 0; i < count; i += 1) {
+      const leadGapClass = withLeadGap && i === 0 ? " borrow-extra-start" : "";
+      strikeSequence.push(`borrow-extra-token${leadGapClass}`);
+    }
+  };
 
-    if (index < normalizedSubtract + normalizedCarry) {
-      const strikeDelay = baseDelay + normalizedSubtract * 0.2 + carryIndex * 0.2;
-      const carryStartClass = carryIndex === 0 ? " borrow-extra-start" : "";
-      carryIndex += 1;
-      return `<span class="strike-candy borrow-extra-token${carryStartClass}" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
+  if (carryFirst) {
+    appendCarryStrike(normalizedCarry, false);
+    appendMainStrike(normalizedSubtract, normalizedCarry > 0);
+  } else {
+    appendMainStrike(normalizedSubtract, false);
+    appendCarryStrike(normalizedCarry, normalizedSubtract > 0);
+  }
+
+  const itemsHtml = Array.from({ length: normalizedTotal }, (_, index) => {
+    const strikeClass = strikeSequence[index];
+    if (strikeClass) {
+      const strikeDelay = baseDelay + index * 0.2;
+      return `<span class="strike-candy ${strikeClass}" style="--strike-delay: ${strikeDelay}s">${itemIcon}</span>`;
     }
 
     return `<span class="candy-item">${itemIcon}</span>`;
@@ -1148,6 +1203,7 @@ function prepareCalculationPhase() {
   let questionText = "";
   let itemIcon = "🍬";
   let borrowStepFlow = null;
+  let additionStepFlow = null;
   
   // Đóng khung cột tương ứng (từ phải sang trái)
   const lines = document.querySelectorAll(".calc-line");
@@ -1185,10 +1241,15 @@ function prepareCalculationPhase() {
       if (state.carry > 0) {
         const afterCarry = valA + state.carry;
         questionText = `Bây giờ ${colName}: ${valA} thêm ${state.carry} bằng ${afterCarry}, rồi ${afterCarry} cộng ${valB} bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
+        additionStepFlow = {
+          firstValue: valA,
+          carryValue: state.carry,
+          addValue: valB,
+        };
       } else {
         questionText = `Bây giờ ${colName}, bạn có ${valA} cái kẹo, cộng thêm ${valB} cái kẹo nữa thì bằng bao nhiêu nào? Hãy đếm số kẹo trên hình hoặc dùng ngón tay nhé.`;
       }
-      candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon);
+      candyContainer.innerHTML = buildAdditionCandyFrame(valA, valB, state.carry, carryCandyClass, itemIcon, state.carry > 0);
     }
   } else if (state.operation === "sub") {
     // Có nhớ (cần trừ đi 1)
@@ -1214,6 +1275,7 @@ function prepareCalculationPhase() {
           borrowedValue: valA,
           subtractValue: valB,
           carryValue: state.carry,
+          carryFirst: true,
         };
         candyContainer.innerHTML = buildBorrowFlowCandyFrame(
           Math.max(0, valA),
@@ -1221,7 +1283,8 @@ function prepareCalculationPhase() {
           state.carry,
           itemIcon,
           3,
-          1.0
+          1.0,
+          true
         );
       } else {
         const visibleFinal = Math.max(0, adjustedValA - valB);
@@ -1252,6 +1315,7 @@ function prepareCalculationPhase() {
             borrowedValue: borrowedVal,
             subtractValue: valB,
             carryValue: state.carry,
+            carryFirst: false,
           };
           candyContainer.innerHTML = buildBorrowFlowCandyFrame(
             baseBeforeSubtract,
@@ -1259,7 +1323,8 @@ function prepareCalculationPhase() {
             state.carry,
             itemIcon,
             3,
-            1.0
+            1.0,
+            false
           );
         }
       } else {
@@ -1268,6 +1333,7 @@ function prepareCalculationPhase() {
           borrowedValue: borrowedVal,
           subtractValue: valB,
           carryValue: 0,
+          carryFirst: false,
         };
         candyContainer.innerHTML = buildBorrowFlowCandyFrame(
           baseBeforeSubtract,
@@ -1275,7 +1341,8 @@ function prepareCalculationPhase() {
           0,
           itemIcon,
           3,
-          1.0
+          1.0,
+          false
         );
       }
     }
@@ -1298,11 +1365,18 @@ function prepareCalculationPhase() {
   setCoachHint("Nhìn kẹo để đếm theo cột hiện tại, nhập đáp án rồi bấm Kiểm tra.");
   state.step4Prompt = fullQuestionText;
 
-  if (borrowStepFlow) {
+  if (additionStepFlow) {
+    animateAdditionStepFlow(
+      additionStepFlow.firstValue,
+      additionStepFlow.carryValue,
+      additionStepFlow.addValue
+    );
+  } else if (borrowStepFlow) {
     animateBorrowStepFlow(
       borrowStepFlow.borrowedValue,
       borrowStepFlow.subtractValue,
-      borrowStepFlow.carryValue
+      borrowStepFlow.carryValue,
+      borrowStepFlow.carryFirst
     );
   } else {
     clearStepFlowDisplay();

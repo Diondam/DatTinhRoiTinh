@@ -983,6 +983,10 @@ body::before {
   margin-left: 0.7em;
 }
 
+.strike-candy.main-strike-start {
+  margin-left: 0.7em;
+}
+
 .candy-item.after-strike-wiggle {
   animation: remainingCandyWiggle 0.7s ease;
   animation-delay: var(--wiggle-delay, 0s);

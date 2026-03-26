@@ -1,12 +1,15 @@
 # Implementation Status
 
 ## Last Updated
-2026-03-25
+2026-03-26
 
 ## Current Focus
 - Đồng bộ logic dạy phép cộng kiểu "viết số, nhớ 1" với lời thoại hướng dẫn ở bước tính theo cột.
 
 ## Recent Changes
+- Sửa thứ tự minh họa kẹo ở Step 4 phép cộng có nhớ trong app.js: đổi render từ `a + b + nhớ` sang `a + nhớ + b` để khớp đúng câu hướng dẫn theo từng bước.
+- Thêm step-flow cho phép cộng có nhớ trên bảng (ví dụ `6 + 1`, rồi `+ 9`, chốt `6 + 1 + 9`) để trẻ nhìn rõ thứ tự tính ngang theo bước.
+- Sửa thứ tự step-flow phép trừ nhánh "trừ số nhớ trước" (ví dụ `4 - 1 - 2` thay vì `4 - 2 - 1`) và đồng bộ lại thứ tự gạch kẹo theo đúng luồng dạy.
 - Hoàn tất auto-end cho phép cộng: khi giải đúng cột cuối mà không còn cột cần tính (kể cả không phát sinh carry mới), hệ thống chuyển thẳng Step 5 thay vì nhắc "ấn Tiếp theo để kết thúc".
 - Sửa timing chuyển Step 5 ở nhánh auto-finalize cộng: Step 4 giờ hiển thị đủ kết quả trên bảng (bao gồm digit nhớ cuối) rồi mới chuyển sang Step 5.
 - Sửa lỗi Quay lại từ Step 5 bị mất phép tính trên bảng: thêm `paintBoardFromState()` trước `prepareCalculationPhase()` để dựng lại phép tính dọc.
@@ -81,6 +84,9 @@
 - Thêm click feedback toàn màn hình: mỗi lần bấm tạo vòng sáng tại vị trí click và phát âm click ngắn bằng WebAudio (không cần file âm thanh ngoài).
 
 ## Next Steps
+- Test lại trực tiếp 2 case theo phản hồi:
+- Cộng có nhớ: 67 + 98, kiểm tra cột chục hiển thị kẹo theo thứ tự `6 + 1 + 9` và step-flow cùng thứ tự.
+- Trừ có nhớ: 42 - 25, kiểm tra cột chục hiển thị step-flow `4 - 1 - 2` và thứ tự kẹo gạch tương ứng.
 - Test nhanh case cộng có nhớ điển hình (ví dụ 36 + 17) để xác nhận câu đọc và câu hỏi Step 4 đều khớp 100%.
 - Nếu vẫn không phát tiếng trên một máy cụ thể, kiểm tra cài đặt voice tiếng Việt trong hệ điều hành và quyền âm thanh của trình duyệt.
 - Nếu máy vẫn im lặng, ưu tiên kiểm tra danh sách TTS voices của hệ thống Windows (Vietnamese language pack) và thử Edge/Chrome profile khác để loại trừ extension chặn speech.
