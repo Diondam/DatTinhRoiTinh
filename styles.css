@@ -1439,6 +1439,19 @@ body::before {
 @media (max-width: 980px) {
   .app-shell.play-mode {
     --panel-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "board"
+      "steps";
+    align-items: start;
+  }
+
+  .app-shell.play-mode .board-section {
+    grid-area: board;
+  }
+
+  .app-shell.play-mode .slides-section {
+    grid-area: steps;
   }
 
   .app-shell.play-mode .slides-section,

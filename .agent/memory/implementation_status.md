@@ -4,9 +4,10 @@
 2026-03-26
 
 ## Current Focus
-- Đồng bộ logic dạy phép cộng kiểu "viết số, nhớ 1" với lời thoại hướng dẫn ở bước tính theo cột.
+- Hoàn thiện responsive cho điện thoại: bố cục play-mode hiển thị bảng ở trên, phần step ở dưới.
 
 ## Recent Changes
+- Sửa responsive trong styles.css cho breakpoint <=980px: play-mode chuyển sang 1 cột với `grid-template-areas` để luôn giữ thứ tự `board` trên và `steps` dưới trên điện thoại/tablet.
 - Sửa thứ tự minh họa kẹo ở Step 4 phép cộng có nhớ trong app.js: đổi render từ `a + b + nhớ` sang `a + nhớ + b` để khớp đúng câu hướng dẫn theo từng bước.
 - Thêm step-flow cho phép cộng có nhớ trên bảng (ví dụ `6 + 1`, rồi `+ 9`, chốt `6 + 1 + 9`) để trẻ nhìn rõ thứ tự tính ngang theo bước.
 - Sửa thứ tự step-flow phép trừ nhánh "trừ số nhớ trước" (ví dụ `4 - 1 - 2` thay vì `4 - 2 - 1`) và đồng bộ lại thứ tự gạch kẹo theo đúng luồng dạy.
@@ -84,6 +85,7 @@
 - Thêm click feedback toàn màn hình: mỗi lần bấm tạo vòng sáng tại vị trí click và phát âm click ngắn bằng WebAudio (không cần file âm thanh ngoài).
 
 ## Next Steps
+- Test giao diện thực tế trên màn hình 360x800 và 390x844 để xác nhận bảng luôn nằm trên, phần step nằm dưới, không tràn ngang.
 - Test lại trực tiếp 2 case theo phản hồi:
 - Cộng có nhớ: 67 + 98, kiểm tra cột chục hiển thị kẹo theo thứ tự `6 + 1 + 9` và step-flow cùng thứ tự.
 - Trừ có nhớ: 42 - 25, kiểm tra cột chục hiển thị step-flow `4 - 1 - 2` và thứ tự kẹo gạch tương ứng.
