@@ -58,11 +58,13 @@ const state = {
   warmMathResizeHandler: null,
   warmMathRenderer: null,
   speechUnlocked: false,
-  speechSupported: ("speechSynthesis" in window) && ("SpeechSynthesisUtterance" in window),
+  speechSupported: true,
   step2ReadyAnnounced: false,
   clickAudioCtx: null,
   lastClickFxTs: 0,
 };
+
+const ttsAudio = new Audio();
 
 function unlockSpeech() {
   if (!state.speechSupported) {
@@ -70,28 +72,13 @@ function unlockSpeech() {
   }
   const wasUnlocked = state.speechUnlocked;
   state.speechUnlocked = true;
-  window.speechSynthesis.resume();
-  if (!state.viVoice) {
-    initVoices();
-  }
 
-  // Prime speech engine on first gesture so subsequent utterances are less likely blocked.
+  // Cố gắng phát một âm thanh rỗng để lấy quyền autoplay trên mobile
   if (!wasUnlocked) {
     try {
-      const primer = new SpeechSynthesisUtterance(".");
-      primer.volume = 0;
-      primer.rate = 1;
-      primer.pitch = 1;
-      if (state.viVoice) {
-        primer.voice = state.viVoice;
-        primer.lang = state.viVoice.lang || "vi-VN";
-      } else {
-        primer.lang = String(navigator.language || "vi-VN");
-      }
-      window.speechSynthesis.speak(primer);
-      window.speechSynthesis.cancel();
+      ttsAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+      ttsAudio.play().catch(() => {});
     } catch (error) {
-      // Ignore primer errors and continue with normal speech flow.
     }
   }
 }
@@ -319,55 +306,36 @@ function initWarmMath3d() {
 }
 
 function isLikelyFemaleVoice(voice) {
-  const identity = `${voice.name || ""} ${voice.voiceURI || ""}`.toLowerCase();
-  // Target common female Vietnamese voice names across systems
-  return /(^|[\s_-])(female|feminine|woman|girl|nu|nữ|an|lê|hoài|mai)($|[\s_-])/.test(identity);
+  return true; 
 }
 
 function initVoices() {
-  if (!state.speechSupported) {
-    return;
-  }
-  const voices = window.speechSynthesis.getVoices();
-  const viVoices = voices.filter((voice) => voice.lang && voice.lang.toLowerCase().startsWith("vi"));
-  const browserLang = String(navigator.language || "").toLowerCase();
-  const browserLangVoice = voices.find((voice) => String(voice.lang || "").toLowerCase().startsWith(browserLang.slice(0, 2)));
-  state.viVoice = viVoices.find((voice) => isLikelyFemaleVoice(voice)) || viVoices[0] || browserLangVoice || voices[0] || null;
+  // Không cần initVoices nữa do chuyển qua API Google Translate
 }
 
 function buildUtterance(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  const defaultLang = String(navigator.language || "vi-VN");
-  utterance.lang = (state.viVoice && state.viVoice.lang) ? state.viVoice.lang : defaultLang;
-  utterance.rate = 0.9; // Slightly slower for clearer pronunciation
-  utterance.pitch = 1.3; // Higher pitch for a clearer feminine/child-friendly voice
-  utterance.volume = 1;
-  if (state.viVoice) {
-    utterance.voice = state.viVoice;
-  }
-  return utterance;
+  // Không dùng Utterance nữa
 }
 
 function speak(text) {
-  if (!state.speechSupported) {
+  if (!state.speechSupported || !state.speechUnlocked) {
     return;
   }
-  if (!state.speechUnlocked) {
-    return;
-  }
-  window.speechSynthesis.resume();
-  if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-    window.speechSynthesis.cancel();
-  }
-  const utterance = buildUtterance(text);
-  window.speechSynthesis.speak(utterance);
+  
+  ttsAudio.pause();
+  ttsAudio.currentTime = 0;
+  
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(text)}`;
+  ttsAudio.src = url;
+  ttsAudio.play().catch(e => console.error("TTS Play Error:", e));
 }
 
 function stopSpeaking() {
   if (!state.speechSupported) {
     return;
   }
-  window.speechSynthesis.cancel();
+  ttsAudio.pause();
+  ttsAudio.currentTime = 0;
 }
 
 function speakAsync(text, timeoutMs = 3600) {
@@ -380,21 +348,27 @@ function speakAsync(text, timeoutMs = 3600) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
-      if (settled) {
-        return;
-      }
+      if (settled) return;
       settled = true;
+      ttsAudio.removeEventListener('ended', finish);
+      ttsAudio.removeEventListener('error', finish);
       resolve();
     };
 
-    window.speechSynthesis.resume();
-    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-      window.speechSynthesis.cancel();
-    }
-    const utterance = buildUtterance(text);
-    utterance.onend = finish;
-    utterance.onerror = finish;
-    window.speechSynthesis.speak(utterance);
+    ttsAudio.pause();
+    ttsAudio.currentTime = 0;
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(text)}`;
+    ttsAudio.src = url;
+    
+    ttsAudio.addEventListener('ended', finish);
+    ttsAudio.addEventListener('error', finish);
+    
+    ttsAudio.play().catch(e => {
+      console.error("TTS Async Play Error:", e);
+      finish();
+    });
+
     setTimeout(finish, dynamicTimeout);
   });
 }
@@ -2050,8 +2024,7 @@ nextBtn.addEventListener("mouseenter", () => {
 });
 
 if ("speechSynthesis" in window) {
-  initVoices();
-  window.speechSynthesis.addEventListener("voiceschanged", initVoices);
+  // Không cần initVoices nữa
 }
 
 attachSpeechUnlockListeners();
